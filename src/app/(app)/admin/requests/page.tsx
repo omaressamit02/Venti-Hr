@@ -44,6 +44,7 @@ interface UserProfile {
 interface EmployeeRequest {
   id: string;
   employeeId: string;
+  managerId?: string; // ID of the manager chosen to approve
   requestType: 'leave_full_day' | 'leave_half_day' | 'mission' | 'permission';
   startDate: string;
   endDate: string;
@@ -132,17 +133,19 @@ export default function AdminRequestsPage() {
     Object.entries(requestsData).forEach(([employeeId, employeeRequests]) => {
         const employeeProfile = employeesData[employeeId];
 
-        // An admin sees all requests, a manager sees requests for their direct reports.
-        if (canSeeAll || (employeeProfile && employeeProfile.managerId === currentUserProfile.id)) {
-            Object.entries(employeeRequests).forEach(([requestId, request]) => {
+        Object.entries(employeeRequests).forEach(([requestId, request]) => {
+            const isManagerOfRequest = request.managerId === currentUserProfile.id;
+            const isDirectManager = employeeProfile?.managerId === currentUserProfile.id;
+            
+            if (canSeeAll || isManagerOfRequest || (isDirectManager && !request.managerId)) {
                 allRequests.push({
                     ...request,
                     id: requestId,
                     employeeId,
                     employeeName: employeesMap.get(employeeId) || 'غير معروف',
                 });
-            });
-        }
+            }
+        });
     });
     
     return allRequests.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
