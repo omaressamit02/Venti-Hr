@@ -1,4 +1,3 @@
-
 'use client';
 
 import QrCodeDisplay from '@/components/qr-code-display';
