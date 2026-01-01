@@ -1,0 +1,118 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --------------------------------------------------------------------
+    // Helper Functions
+    // --------------------------------------------------------------------
+
+    /**
+     * Returns true if the user is signed in.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Returns true if the requesting user's UID matches the given userId.
+     * Used to verify ownership of a document or data path.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    /**
+     * Returns true if the user has an 'admin' role in their employee document.
+     */
+    function isAdmin() {
+      // An admin can access data if their own employee document has 'admin' in permissions.
+      return isSignedIn() && get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.permissions.hasAny(['admin']);
+    }
+
+    /**
+     * Validates that the employeeId within a new document matches the path.
+     */
+    function newRecordHasCorrectOwner(employeeId) {
+      return request.resource.data.employeeId == employeeId;
+    }
+
+    /**
+     * Validates that the employeeId of an existing document cannot be changed.
+     */
+    function ownerIsImmutable() {
+      return request.resource.data.employeeId == resource.data.employeeId;
+    }
+    
+    // --------------------------------------------------------------------
+    // Collection Rules
+    // --------------------------------------------------------------------
+
+    /**
+     * @description Controls access to employee profile documents.
+     * Admins can read/write all employee data.
+     * Employees can only read their own data.
+     * The list of employees is public to allow login by employee code.
+     */
+    match /employees/{employeeId} {
+      allow read: if isOwner(employeeId) || isAdmin();
+      allow list: if true; // Allow anyone to list employees for login purposes.
+      allow write: if isAdmin() || !exists(/databases/$(database)/documents/employees/$(employeeId)); // Admins can write, new users can register.
+
+      /**
+       * @description Controls access to an employee's attendance records.
+       */
+      match /attendance/{attendanceId} {
+        allow read, list: if isOwner(employeeId) || isAdmin();
+        allow create: if isOwner(employeeId) && newRecordHasCorrectOwner(employeeId);
+        allow update, delete: if isOwner(employeeId) || isAdmin();
+      }
+
+      /**
+       * @description Controls access to an employee's payroll records.
+       */
+      match /payroll/{payrollId} {
+        allow read, list: if isOwner(employeeId) || isAdmin();
+        allow write: if isAdmin(); // Only admins can manage payroll.
+      }
+    }
+    
+    /**
+     * @description Deduction rules can be read by any signed-in user, but only written by admins.
+     */
+    match /deduction_rules/{deductionRuleId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    /**
+     * @description Global settings can be read by any signed-in user, but only written by admins.
+     */
+    match /global_settings/{globalSettingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    /**
+     * @description QR code tokens for attendance.
+     * Any signed-in user can read them to perform check-in.
+     * Only admins (or a trusted server process) can create/update them.
+     */
+    match /qr_codes/{qrCodeId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin(); // Should be restricted to a server role in production.
+    }
+    
+    /**
+     * @description Employee requests (leave, missions).
+     * Employees can create and read their own requests.
+     * Admins can read all requests and update their status.
+     */
+    match /employee_requests/{employeeId}/{requestId} {
+       allow read, create: if isOwner(employeeId);
+       allow list: if isOwner(employeeId) || isAdmin();
+       allow update: if isAdmin(); // Only admins can change the status (approve/reject).
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    "employees": {
+      ".indexOn": ["employeeCode", "phoneNumber"]
+    },
+    "attendance": {
+      "$month": {
+        ".indexOn": ["employeeId_date", "employeeId"]
+      }
+    },
+    "financial_transactions": {
+      "$employeeId": {
+        "$month": {
+          ".indexOn": ["employeeId_date"]
+        }
+      }
+    }
+  }
+}
