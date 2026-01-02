@@ -33,8 +33,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
-      <body className={cn("font-body antialiased", tajawal.variable, cairo.variable)}>
+    <html lang="ar" dir="rtl" suppressHydrationWarning className={cn(tajawal.variable, cairo.variable)}>
+      <body className={cn("font-body antialiased")}>
         <ThemeProvider
             attribute="class"
             defaultTheme="system"
