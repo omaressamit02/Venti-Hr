@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,14 +13,18 @@ interface UserProfile {
 
 export default function HomePage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [dateState, setDateState] = useState(new Date());
+  const [dateState, setDateState] = useState<Date | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
 
   useEffect(() => {
+    setIsClient(true);
     const storedProfile = localStorage.getItem('userProfile');
     if (storedProfile) {
       setUserProfile(JSON.parse(storedProfile));
     }
-     const timer = setInterval(() => setDateState(new Date()), 30000);
+    setDateState(new Date());
+    const timer = setInterval(() => setDateState(new Date()), 30000);
     return () => clearInterval(timer);
   }, []);
   
@@ -46,14 +51,23 @@ export default function HomePage() {
                 </p>
            </div>
             <div className="flex items-center space-x-2 space-x-reverse text-right">
-                <div className="p-2 bg-muted rounded-md">
-                    <p className="text-lg font-semibold">{dateState.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'long' })}</p>
-                    <p className="text-xs text-muted-foreground">{dateState.toLocaleDateString('ar-EG-u-nu-latn', { weekday: 'long' })}</p>
-                </div>
-                 <div className="p-2 bg-muted rounded-md">
-                    <p className="text-lg font-semibold">{dateState.toLocaleString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
-                     <p className="text-xs text-muted-foreground">التوقيت المحلي</p>
-                </div>
+                {isClient && dateState ? (
+                    <>
+                        <div className="p-2 bg-muted rounded-md">
+                            <p className="text-lg font-semibold">{dateState.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'long' })}</p>
+                            <p className="text-xs text-muted-foreground">{dateState.toLocaleDateString('ar-EG-u-nu-latn', { weekday: 'long' })}</p>
+                        </div>
+                        <div className="p-2 bg-muted rounded-md">
+                            <p className="text-lg font-semibold">{dateState.toLocaleString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+                            <p className="text-xs text-muted-foreground">التوقيت المحلي</p>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <Skeleton className="h-16 w-24" />
+                        <Skeleton className="h-16 w-24" />
+                    </>
+                )}
             </div>
       </div>
 
