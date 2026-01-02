@@ -590,6 +590,15 @@ export default function ScannerPage() {
 
     return (
       <div className="space-y-4">
+        {settings?.employeeAlert && (
+            <Alert className="border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle className="font-bold">تنبيه هام من الإدارة</AlertTitle>
+                <AlertDescription>
+                    {settings.employeeAlert}
+                </AlertDescription>
+            </Alert>
+        )}
         <div className={`text-center text-sm p-2 rounded-md bg-muted border ${isWithinRange ? 'text-green-600 border-green-200' : 'text-orange-600 font-bold border-orange-500/50'}`}>
             {locationStatusMessage()}
         </div>
