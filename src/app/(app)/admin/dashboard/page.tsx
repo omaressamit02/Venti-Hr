@@ -5,7 +5,7 @@ export default function AdminDashboardPage() {
     return (
         <div>
             <h1 className="text-2xl font-bold">لوحة التحكم الإدارية</h1>
-            <p>مرحباً بك في لوحة التحكم.</p>
+            <p>  .</p>
         </div>
     );
 }

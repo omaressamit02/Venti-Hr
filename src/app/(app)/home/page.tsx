@@ -1,22 +1,56 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Briefcase, Calendar, Clock } from 'lucide-react';
+import { Briefcase, Calendar, Clock, UserCheck, UserX } from 'lucide-react';
+import { useDb, useDbData, useMemoFirebase } from '@/firebase';
+import { ref } from 'firebase/database';
+import { format, getDaysInYear, differenceInDays, startOfYear, endOfYear } from 'date-fns';
 
 interface UserProfile {
+  id: string;
   employeeName: string;
+}
+
+interface AttendanceRecord {
+  checkIn: string;
+  checkOut?: string;
+  delayMinutes?: number;
+  date: string;
+}
+
+interface EmployeeRequest {
+  requestType: "leave_full_day" | "leave_half_day" | "mission";
+  status: "pending" | "approved" | "rejected";
+  startDate: string;
+  endDate: string;
 }
 
 export default function HomePage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [dateState, setDateState] = useState<Date | null>(null);
   const [isClient, setIsClient] = useState(false);
+  
+  const db = useDb();
+  
+  // --- Data Fetching ---
+  const currentMonthStr = useMemo(() => format(new Date(), 'yyyy-MM'), []);
+  
+  const attendanceRef = useMemoFirebase(() => 
+    (db && userProfile?.id) ? ref(db, `attendance/${currentMonthStr}`) : null, 
+  [db, userProfile, currentMonthStr]);
+  const [monthlyAttendance, isAttendanceLoading] = useDbData<Record<string, AttendanceRecord>>(attendanceRef);
 
-
+  const requestsRef = useMemoFirebase(() => 
+    (db && userProfile?.id) ? ref(db, `employee_requests/${userProfile.id}`) : null,
+  [db, userProfile]);
+  const [allRequests, isRequestsLoading] = useDbData<Record<string, EmployeeRequest>>(requestsRef);
+  
+  const isLoading = isAttendanceLoading || isRequestsLoading;
+  
+  // --- Effects ---
   useEffect(() => {
     setIsClient(true);
     const storedProfile = localStorage.getItem('userProfile');
@@ -28,6 +62,71 @@ export default function HomePage() {
     return () => clearInterval(timer);
   }, []);
   
+  // --- Memoized Calculations ---
+
+  const userAttendance = useMemo(() => {
+    if (!monthlyAttendance || !userProfile) return [];
+    return Object.values(monthlyAttendance).filter(rec => rec.employeeId === userProfile.id);
+  }, [monthlyAttendance, userProfile]);
+  
+  const attendanceStatus = useMemo(() => {
+    if (userAttendance.length === 0) return { status: 'خارج العمل', time: null };
+    
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const todayRecord = userAttendance.find(rec => rec.date === todayStr);
+
+    if (!todayRecord) {
+         const lastRecord = userAttendance.sort((a,b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime())[0];
+         if(lastRecord && lastRecord.checkOut) {
+             return { status: 'خارج العمل', time: `آخر انصراف: ${new Date(lastRecord.checkOut).toLocaleTimeString('ar-EG')}` };
+         } else if (lastRecord) {
+             return { status: 'داخل العمل', time: `مسجل حضور منذ: ${new Date(lastRecord.checkIn).toLocaleTimeString('ar-EG')}` };
+         }
+         return { status: 'خارج العمل', time: null };
+    }
+
+    if (todayRecord.checkOut) {
+      return { status: 'خارج العمل', time: `تم الانصراف: ${new Date(todayRecord.checkOut).toLocaleTimeString('ar-EG')}` };
+    }
+    if (todayRecord.checkIn) {
+      return { status: 'داخل العمل', time: `تم الحضور: ${new Date(todayRecord.checkIn).toLocaleTimeString('ar-EG')}` };
+    }
+    return { status: 'خارج العمل', time: null };
+  }, [userAttendance]);
+  
+  const totalDelayMinutes = useMemo(() => {
+    return userAttendance.reduce((total, record) => total + (record.delayMinutes || 0), 0);
+  }, [userAttendance]);
+  
+  const pendingRequestsCount = useMemo(() => {
+    if (!allRequests) return 0;
+    return Object.values(allRequests).filter(req => req.status === 'pending').length;
+  }, [allRequests]);
+  
+  const remainingLeaveDays = useMemo(() => {
+    const totalLeaveBalance = 21; // Assume a standard balance
+    if (!allRequests) return totalLeaveBalance;
+
+    const currentYear = new Date().getFullYear();
+    
+    let daysTaken = 0;
+    Object.values(allRequests).forEach(req => {
+        if (req.status === 'approved' && req.requestType.startsWith('leave')) {
+            const startDate = new Date(req.startDate);
+            if (startDate.getFullYear() === currentYear) {
+                if(req.requestType === 'leave_half_day'){
+                    daysTaken += 0.5;
+                } else {
+                    const endDate = new Date(req.endDate);
+                    daysTaken += differenceInDays(endDate, startDate) + 1;
+                }
+            }
+        }
+    });
+
+    return totalLeaveBalance - daysTaken;
+  }, [allRequests]);
+
   const welcomeMessage = () => {
       const hour = new Date().getHours();
       if (hour < 12) return 'صباح الخير';
@@ -77,13 +176,11 @@ export default function HomePage() {
             <CardTitle className="text-sm font-medium">
               حالة الحضور
             </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            {attendanceStatus.status === 'داخل العمل' ? <UserCheck className="h-4 w-4 text-green-500" /> : <UserX className="h-4 w-4 text-muted-foreground" />}
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">لم يتم التسجيل</div>
-            <p className="text-xs text-muted-foreground">
-              لم تسجل حضورك لهذا اليوم بعد
-            </p>
+            {isLoading ? <Skeleton className="h-8 w-3/4"/> : <div className="text-2xl font-bold">{attendanceStatus.status}</div> }
+            {isLoading ? <Skeleton className="h-4 w-1/2 mt-1"/> : <p className="text-xs text-muted-foreground">{attendanceStatus.time || 'لم تسجل حضورك لهذا اليوم بعد'}</p>}
           </CardContent>
         </Card>
         <Card>
@@ -94,7 +191,7 @@ export default function HomePage() {
              <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0 دقيقة</div>
+            {isLoading ? <Skeleton className="h-8 w-1/2"/> : <div className="text-2xl font-bold">{totalDelayMinutes} دقيقة</div> }
             <p className="text-xs text-muted-foreground">
               هذا الشهر
             </p>
@@ -106,9 +203,9 @@ export default function HomePage() {
             <Briefcase className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            {isLoading ? <Skeleton className="h-8 w-1/4"/> : <div className="text-2xl font-bold">{pendingRequestsCount}</div>}
             <p className="text-xs text-muted-foreground">
-              لديك 0 طلب إجازة أو مأمورية قيد المراجعة
+              لديك {pendingRequestsCount} طلب إجازة أو مأمورية قيد المراجعة
             </p>
           </CardContent>
         </Card>
@@ -118,9 +215,9 @@ export default function HomePage() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            {isLoading ? <Skeleton className="h-8 w-1/4"/> : <div className="text-2xl font-bold">{remainingLeaveDays}</div> }
             <p className="text-xs text-muted-foreground">
-              من رصيد الإجازات السنوي
+              من رصيد الإجازات السنوي (تقديري)
             </p>
           </CardContent>
         </Card>
