@@ -37,7 +37,7 @@ import { Calculator, CheckCircle, DollarSign, Send, FileSpreadsheet, Printer, Lo
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
-import { ref, set, get } from 'firebase/database';
+import { ref, set, get, update } from 'firebase/database';
 import { Skeleton } from '@/components/ui/skeleton';
 import * as XLSX from 'xlsx';
 import { format, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, differenceInHours } from 'date-fns';
@@ -449,7 +449,7 @@ export default function PayrollPage() {
             updates[`/payroll/${selectedMonth}/${item.employeeId}`] = { ...item, paid: true };
         }
     });
-    await set(ref(db), updates);
+    await update(ref(db), updates);
     setPayrollData(prevData => prevData.map(item => ({ ...item, paid: true })));
     toast({ title: 'تم دفع جميع الرواتب بنجاح' });
   };
@@ -607,4 +607,3 @@ export default function PayrollPage() {
   );
 }
 
-    
