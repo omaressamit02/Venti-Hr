@@ -556,7 +556,7 @@ export default function PayrollPage() {
                     )
                 })
               ) : (
-                <TableRow>
+                <TableRow key="no-data-row">
                   <TableCell colSpan={6} className="h-24 text-center">{!isLoading && "اختر الشهر واضغط 'حساب' لعرض البيانات."}</TableCell>
                 </TableRow>
               )}
@@ -604,3 +604,5 @@ export default function PayrollPage() {
     </div>
   );
 }
+
+    
