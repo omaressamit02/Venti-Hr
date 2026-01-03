@@ -262,7 +262,7 @@ export default function PayrollPage() {
 
   // --- Data Fetching ---
   const employeesRef = useMemoFirebase(() => db ? ref(db, 'employees') : null, [db]);
-  const [employeesData, isEmployeesLoading] = useDbData<Record<string, Employee>>(employeesRef);
+  const [employeesData, isEmployeesLoading] = useDbData<Record<string, Omit<Employee, 'id'>>>(employeesRef);
 
   const attendanceRef = useMemoFirebase(() => db ? ref(db, `attendance/${selectedMonth}`) : null, [db, selectedMonth]);
   const [attendanceData, isAttendanceLoading] = useDbData<Record<string, AttendanceRecord>>(attendanceRef);
@@ -295,7 +295,9 @@ export default function PayrollPage() {
     const monthStart = startOfMonth(monthDate);
     const monthEnd = endOfMonth(monthDate);
 
-    const newPayrollData: PayrollItem[] = Object.values(employeesData).map(employee => {
+    const allEmployees: Employee[] = Object.entries(employeesData).map(([id, employee]) => ({ ...employee, id }));
+
+    const newPayrollData: PayrollItem[] = allEmployees.map(employee => {
         
         const dailyRate = employee.salary / 30;
         const workHoursPerDay = settings.workStartTime && settings.workEndTime 
@@ -604,3 +606,5 @@ export default function PayrollPage() {
     </div>
   );
 }
+
+    
