@@ -25,6 +25,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { ChevronsUpDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMemo } from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const employeeFormSchema = z.object({
   employeeName: z.string().min(1, 'اسم الموظف مطلوب'),
@@ -122,8 +123,6 @@ export function EmployeeForm({ onSubmit, defaultValues = {}, currentEmployeeId }
 
 
   const shiftConfiguration = watch('shiftConfiguration');
-  const watchPermissions = watch('permissions') || [];
-  const watchLocationIds = watch('locationIds') || [];
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -278,54 +277,68 @@ export function EmployeeForm({ onSubmit, defaultValues = {}, currentEmployeeId }
         )}
       </div>
 
-       <div className="space-y-4 rounded-md border p-4">
+       <Controller
+        name="permissions"
+        control={control}
+        render={({ field }) => (
+          <div className="space-y-4 rounded-md border p-4">
             <Label>صلاحيات الوصول للشاشات</Label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-60 overflow-y-auto">
+            <ScrollArea className="h-60">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {permissionNavItems.map((item) => (
-                    <div key={item.href} className="flex items-center space-x-2 space-x-reverse">
-                        <Checkbox
-                            id={item.href}
-                            checked={watchPermissions.includes(item.href)}
-                            onCheckedChange={(checked) => {
-                                const currentPermissions = watchPermissions;
-                                const newPermissions = checked
-                                ? [...currentPermissions, item.href]
-                                : currentPermissions.filter((p) => p !== item.href);
-                                control.setValue('permissions', newPermissions);
-                            }}
-                        />
-                        <label htmlFor={item.href} className="text-sm font-medium leading-none">
-                            {item.label}
-                        </label>
-                    </div>
+                  <div key={item.href} className="flex items-center space-x-2 space-x-reverse">
+                    <Checkbox
+                      id={item.href}
+                      checked={field.value?.includes(item.href)}
+                      onCheckedChange={(checked) => {
+                        const newValue = checked
+                          ? [...(field.value || []), item.href]
+                          : (field.value || []).filter((p) => p !== item.href);
+                        field.onChange(newValue);
+                      }}
+                    />
+                    <label htmlFor={item.href} className="text-sm font-medium leading-none">
+                      {item.label}
+                    </label>
+                  </div>
                 ))}
-            </div>
-        </div>
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+      />
 
-        <div className="space-y-4 rounded-md border p-4">
+      <Controller
+        name="locationIds"
+        control={control}
+        render={({ field }) => (
+          <div className="space-y-4 rounded-md border p-4">
             <Label>الفروع المصرح له العمل بها</Label>
             <p className="text-xs text-muted-foreground">إذا لم يتم اختيار أي فرع، سيعتبر الموظف قادرًا على العمل في جميع الفروع.</p>
-             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-60 overflow-y-auto">
+            <ScrollArea className="h-40">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {locationsList.map((loc) => (
-                     <div key={loc.id} className="flex items-center space-x-2 space-x-reverse">
-                        <Checkbox
-                            id={`loc-${loc.id}`}
-                            checked={watchLocationIds.includes(loc.id)}
-                            onCheckedChange={(checked) => {
-                                const currentLocationIds = watchLocationIds;
-                                const newLocationIds = checked
-                                ? [...currentLocationIds, loc.id]
-                                : currentLocationIds.filter((id) => id !== loc.id);
-                                control.setValue('locationIds', newLocationIds);
-                            }}
-                        />
-                         <label htmlFor={`loc-${loc.id}`} className="text-sm font-medium leading-none">
-                            {loc.name}
-                        </label>
-                    </div>
+                  <div key={loc.id} className="flex items-center space-x-2 space-x-reverse">
+                    <Checkbox
+                      id={`loc-${loc.id}`}
+                      checked={field.value?.includes(loc.id)}
+                      onCheckedChange={(checked) => {
+                        const newValue = checked
+                          ? [...(field.value || []), loc.id]
+                          : (field.value || []).filter((id) => id !== loc.id);
+                        field.onChange(newValue);
+                      }}
+                    />
+                    <label htmlFor={`loc-${loc.id}`} className="text-sm font-medium leading-none">
+                      {loc.name}
+                    </label>
+                  </div>
                 ))}
-            </div>
-        </div>
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+      />
         
         <div className="space-y-4 rounded-md border p-4">
              <div className="flex items-center justify-between">

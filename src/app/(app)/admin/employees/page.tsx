@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -97,6 +98,7 @@ interface Employee {
   locationIds?: string[];
   dayOff?: string;
   managerId?: string;
+  isManager?: boolean;
   disableDeductions?: boolean;
   locationLoginRequired?: boolean;
 }
@@ -271,6 +273,7 @@ export default function EmployeesPage() {
                 permissions: navItems.map(item => item.href),
                 userStatus: 'Active' as 'Active',
                 dayOff: '5',
+                isManager: true,
             };
             await set(defaultEmployeeRef, defaultEmployee);
             toast({
@@ -305,7 +308,7 @@ export default function EmployeesPage() {
     try {
       const newEmployeeRef = push(ref(db, 'employees'));
       
-      const newEmployeeData: Omit<Employee, 'id'> = {
+      const newEmployeeData = {
         employeeName: formData.employeeName,
         employeeCode: formData.employeeCode,
         phoneNumber: formData.phoneNumber,
@@ -316,10 +319,11 @@ export default function EmployeesPage() {
         shiftConfiguration: formData.shiftConfiguration,
         checkInTime: formData.checkInTime,
         checkOutTime: formData.checkOutTime,
-        permissions: formData.permissions,
+        permissions: formData.permissions || [],
         locationIds: formData.locationIds || [],
         dayOff: formData.dayOff,
         managerId: formData.managerId,
+        isManager: formData.isManager,
         userStatus: 'Active',
         disableDeductions: formData.disableDeductions,
         locationLoginRequired: formData.locationLoginRequired,
@@ -360,14 +364,17 @@ export default function EmployeesPage() {
         shiftConfiguration: formData.shiftConfiguration,
         checkInTime: formData.checkInTime,
         checkOutTime: formData.checkOutTime,
-        permissions: formData.permissions,
+        permissions: formData.permissions || [],
         locationIds: formData.locationIds || [],
         dayOff: formData.dayOff,
         managerId: formData.managerId,
+        isManager: formData.isManager,
         disableDeductions: formData.disableDeductions,
         locationLoginRequired: formData.locationLoginRequired,
-        ...(formData.password && { password: formData.password }),
       };
+      if (formData.password) {
+        updatedData.password = formData.password;
+      }
       
       await update(employeeRef, updatedData);
       
@@ -860,7 +867,7 @@ export default function EmployeesPage() {
                 إضافة موظف
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="max-w-3xl">
                 <DialogHeader>
                 <DialogTitle>إضافة موظف جديد</DialogTitle>
                 <DialogDescription>
@@ -1313,7 +1320,7 @@ export default function EmployeesPage() {
       </Card>
       
       <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-3xl">
             <DialogHeader>
                 <DialogTitle>تعديل بيانات الموظف</DialogTitle>
                 <DialogDescription>
@@ -1330,8 +1337,6 @@ export default function EmployeesPage() {
                       checkInTime: editingEmployee.checkInTime || '',
                       checkOutTime: editingEmployee.checkOutTime || '',
                       password: '', // Don't show old password
-                      permissions: editingEmployee.permissions || [],
-                      locationIds: editingEmployee.locationIds || [],
                   } : {}}
               />
             </ScrollArea>
