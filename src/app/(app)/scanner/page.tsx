@@ -229,12 +229,12 @@ export default function ScannerPage() {
 
             if (snapshot.exists()) {
                 const records = Object.entries(snapshot.val()) as [string, AttendanceRecord][];
-                const openRecord = records
+                const openRecordEntry = records
                     .sort((a, b) => new Date(b[1].checkIn).getTime() - new Date(a[1].checkIn).getTime())
                     .find(([, record]) => record.checkIn && !record.checkOut);
                 
-                if (openRecord) {
-                    const [recordId, recordData] = openRecord;
+                if (openRecordEntry) {
+                    const [recordId, recordData] = openRecordEntry;
                     const checkInTime = new Date(recordData.checkIn).getTime();
                     const hoursSinceCheckIn = (today.getTime() - checkInTime) / (1000 * 60 * 60);
 
@@ -243,7 +243,7 @@ export default function ScannerPage() {
                         return null; 
                     }
                     
-                    return { recordId, path: `attendance/${monthString}/${recordId}` };
+                    return { recordId, path: `attendance/${monthString}/${recordId}`, data: recordData };
                 }
             }
         }
@@ -402,13 +402,22 @@ export default function ScannerPage() {
         });
 
     } else if (mode === 'check_out') {
-        const openRecord = await findOpenAttendanceRecord();
+        const openRecordInfo = await findOpenAttendanceRecord();
         
-        if (!openRecord) {
+        if (!openRecordInfo) {
             throw new Error("لا يوجد سجل حضور مفتوح لتسجيل الانصراف له.");
         }
+        
+        if(openRecordInfo.data && openRecordInfo.data.checkIn) {
+            const checkInTime = new Date(openRecordInfo.data.checkIn);
+            const now = new Date();
+            const minutesSinceCheckIn = (now.getTime() - checkInTime.getTime()) / 60000;
+            if (minutesSinceCheckIn < 60) {
+                throw new Error(`لا يمكنك تسجيل الانصراف قبل مرور ساعة على الأقل. لقد مر ${Math.round(minutesSinceCheckIn)} دقيقة فقط.`);
+            }
+        }
 
-        const recordRef = ref(db, openRecord.path);
+        const recordRef = ref(db, openRecordInfo.path);
         await update(recordRef, { checkOut: new Date().toISOString(), checkOutLocation: currentGpsLocation, checkOutDistance: distance });
         
         toast({
