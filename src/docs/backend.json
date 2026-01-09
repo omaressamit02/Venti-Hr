@@ -378,7 +378,7 @@
         "properties": {
             "employeeId": { "type": "string", "description": "ID of the employee making the request." },
             "managerId": { "type": "string", "description": "ID of the employee's manager for approval." },
-            "requestType": { "type": "string", "enum": ["leave_full_day", "leave_half_day", "mission", "permission"], "description": "Type of request." },
+            "requestType": { "type": "string", "enum": ["leave_full_day", "leave_half_day", "mission", "permission_early", "permission_late"], "description": "Type of request." },
             "startDate": { "type": "string", "format": "date-time", "description": "Start date/time of the request." },
             "endDate": { "type": "string", "format": "date-time", "description": "End date/time of the request." },
             "durationHours": { "type": "number", "description": "Duration in hours for a permission request." },

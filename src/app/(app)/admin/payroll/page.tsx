@@ -76,7 +76,7 @@ interface FinancialTransaction {
 }
 
 interface EmployeeRequest {
-  requestType: "leave_full_day" | "leave_half_day" | "mission" | "permission";
+  requestType: "leave_full_day" | "leave_half_day" | "mission" | "permission_early" | "permission_late";
   status: "approved";
   startDate: string;
   endDate: string;
@@ -313,10 +313,11 @@ export default function PayrollPage() {
         const totalDelayMinutes = employee.disableDeductions ? 0 : employeeAttendance.reduce((acc, curr) => acc + (curr.delayMinutes || 0), 0);
         const totalEarlyLeaveMinutes = employee.disableDeductions ? 0 : employeeAttendance.reduce((acc, curr) => acc + (curr.earlyLeaveMinutes || 0), 0);
 
-        // 2. Approved Leaves & Missions
+        // 2. Approved Leaves & Permissions
         const employeeRequests = requestsData?.[employee.id] ? Object.values(requestsData[employee.id]) : [];
         const approvedLeaveDays = new Set<string>();
-        let approvedPermissionHours = 0;
+        let approvedEarlyLeavePermissionHours = 0;
+        let approvedLateArrivalPermissionMinutes = 0;
         
         employeeRequests.forEach(req => {
             if (req.status === 'approved') {
@@ -326,8 +327,11 @@ export default function PayrollPage() {
                 if (req.requestType.startsWith('leave')) {
                     eachDayOfInterval({ start: new Date(req.startDate), end: new Date(req.endDate) }).forEach(day => approvedLeaveDays.add(format(day, 'yyyy-MM-dd')));
                 }
-                if (req.requestType === 'permission' && req.durationHours) {
-                    approvedPermissionHours += req.durationHours;
+                if (req.requestType === 'permission_early' && req.durationHours) {
+                    approvedEarlyLeavePermissionHours += req.durationHours;
+                }
+                if (req.requestType === 'permission_late' && req.durationHours) {
+                    approvedLateArrivalPermissionMinutes += req.durationHours * 60;
                 }
             }
         });
@@ -351,13 +355,17 @@ export default function PayrollPage() {
         });
         const absenceDeductions = absenceDays * (settings.deductionForAbsence || 0) * dailyRate;
         const incompleteRecordDeductions = incompleteRecords * (settings.deductionForIncompleteRecord || 0) * dailyRate;
-        const permissionDeductions = approvedPermissionHours * hourlyRate;
+        const permissionDeductions = approvedEarlyLeavePermissionHours * hourlyRate;
 
         // 4. Delay & Early Leave Deductions
         let delayDeductions = 0;
         let appliedDelayRule = 'N/A';
         const lateAllowance = settings.lateAllowanceScope === 'monthly' ? (settings.lateAllowance || 0) : 0;
-        const chargeableDelayMinutes = Math.max(0, totalDelayMinutes - lateAllowance);
+        
+        // Subtract approved late permission minutes from total delay
+        const netDelayMinutes = Math.max(0, totalDelayMinutes - approvedLateArrivalPermissionMinutes);
+        const chargeableDelayMinutes = Math.max(0, netDelayMinutes - lateAllowance);
+
         const deductionRules = settings.deductionRules || [];
 
         if (chargeableDelayMinutes > 0 && deductionRules.length > 0) {
@@ -606,4 +614,3 @@ export default function PayrollPage() {
     </div>
   );
 }
-

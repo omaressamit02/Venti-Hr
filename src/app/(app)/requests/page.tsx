@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
-import { ref, push, query, orderByChild, get, equalTo } from 'firebase/database';
+import { ref, push, query, type Query } from 'firebase/database';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,7 +43,7 @@ interface EmployeeRequest {
   id: string;
   employeeId: string;
   managerId: string;
-  requestType: 'leave_full_day' | 'leave_half_day' | 'mission' | 'permission';
+  requestType: 'leave_full_day' | 'leave_half_day' | 'mission' | 'permission_early' | 'permission_late';
   startDate: string;
   endDate: string;
   durationHours?: number;
@@ -74,7 +74,8 @@ const requestTypeConfig: { [key: string]: string } = {
     leave_full_day: 'إجازة يوم كامل',
     leave_half_day: 'إجازة نصف يوم',
     mission: 'مأمورية',
-    permission: 'إذن (خروج مبكر)',
+    permission_early: 'إذن (خروج مبكر)',
+    permission_late: 'إذن (حضور متأخر)',
 };
 
 export default function EmployeeRequestsPage() {
@@ -84,7 +85,7 @@ export default function EmployeeRequestsPage() {
   const [isDialogOpen, setDialogOpen] = useState(false);
 
   // New Request Form State
-  const [requestType, setRequestType] = useState<'leave_full_day' | 'leave_half_day' | 'mission' | 'permission'>('leave_full_day');
+  const [requestType, setRequestType] = useState<'leave_full_day' | 'leave_half_day' | 'mission' | 'permission_early' | 'permission_late'>('leave_full_day');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [durationHours, setDurationHours] = useState<number | undefined>(undefined);
@@ -104,11 +105,11 @@ export default function EmployeeRequestsPage() {
     }
   }, []);
 
-  const employeeRequestsRef = useMemoFirebase(
-    () => (db && currentUserProfile?.id ? query(ref(db, 'employee_requests'), orderByChild('employeeId'), equalTo(currentUserProfile.id)) : null),
-    [db, currentUserProfile?.id]
-  );
-  const [requestsData, isRequestsLoading] = useDbData<Record<string, Omit<EmployeeRequest, 'id'>>>(employeeRequestsRef);
+  const employeeRequestsQuery: Query | null = useMemoFirebase(() => {
+    if (!db || !currentUserProfile?.id) return null;
+    return query(ref(db, `employee_requests/${currentUserProfile.id}`));
+  }, [db, currentUserProfile?.id]);
+  const [requestsData, isRequestsLoading] = useDbData<Record<string, Omit<EmployeeRequest, 'id' | 'employeeId'>>>(employeeRequestsQuery);
 
   const employeesRef = useMemoFirebase(() => db ? ref(db, `employees`) : null, [db]);
   const [employeesData, isEmployeesLoading] = useDbData<Record<string, { employeeName: string, permissions?: string[], managerId?: string, isManager?: boolean }>>(employeesRef);
@@ -157,7 +158,7 @@ export default function EmployeeRequestsPage() {
         return;
     }
 
-    if (requestType === 'permission' && (!durationHours || durationHours <= 0)) {
+    if (requestType.startsWith('permission') && (!durationHours || durationHours <= 0)) {
         toast({ variant: 'destructive', title: 'بيانات ناقصة', description: 'الرجاء تحديد عدد ساعات الإذن.' });
         return;
     }
@@ -165,22 +166,21 @@ export default function EmployeeRequestsPage() {
     setIsLoading(true);
 
     try {
-        const requestsRootRef = ref(db, 'employee_requests');
-        const newRequestRef = push(requestsRootRef);
+        const newRequestRef = push(ref(db, `employee_requests/${currentUserProfile.id}`));
 
         const newRequest: Omit<EmployeeRequest, 'id'> = {
             employeeId: currentUserProfile.id,
             managerId: selectedManager,
             requestType,
-            startDate: requestType === 'permission' ? startDate : new Date(startDate).toISOString(),
-            endDate: requestType === 'permission' ? startDate : new Date(endDate).toISOString(),
-            ...(requestType === 'permission' && { durationHours }),
+            startDate: requestType.startsWith('permission') ? startDate : new Date(startDate).toISOString(),
+            endDate: requestType.startsWith('permission') ? startDate : new Date(endDate).toISOString(),
+            ...(requestType.startsWith('permission') && { durationHours }),
             notes,
             status: 'pending',
             createdAt: new Date().toISOString(),
         };
 
-        await push(ref(db, `employee_requests/${currentUserProfile.id}`), newRequest);
+        await set(newRequestRef, newRequest);
         
         toast({ title: 'تم إرسال طلبك بنجاح' });
         setDialogOpen(false);
@@ -199,7 +199,7 @@ export default function EmployeeRequestsPage() {
   }
   
   useEffect(() => {
-    if (requestType !== 'permission' && startDate) {
+    if (!requestType.startsWith('permission') && startDate) {
       setEndDate(startDate);
     }
   }, [startDate, requestType]);
@@ -235,7 +235,8 @@ export default function EmployeeRequestsPage() {
                                     <SelectItem value="leave_full_day">إجازة يوم كامل</SelectItem>
                                     <SelectItem value="leave_half_day">إجازة نصف يوم</SelectItem>
                                     <SelectItem value="mission">مأمورية</SelectItem>
-                                    <SelectItem value="permission">إذن (خروج مبكر)</SelectItem>
+                                    <SelectItem value="permission_early">إذن (خروج مبكر)</SelectItem>
+                                    <SelectItem value="permission_late">إذن (حضور متأخر)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -254,21 +255,21 @@ export default function EmployeeRequestsPage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="start-date">
-                                {requestType === 'permission' ? 'تاريخ الإذن' : 'من تاريخ'}
+                                {requestType.startsWith('permission') ? 'تاريخ الإذن' : 'من تاريخ'}
                             </Label>
                             <Input id="start-date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required/>
                         </div>
 
-                       {requestType !== 'permission' && (
+                       {!requestType.startsWith('permission') && (
                          <div className="space-y-2">
                             <Label htmlFor="end-date">إلى تاريخ</Label>
                             <Input id="end-date" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} min={startDate} required/>
                         </div>
                        )}
-                       {requestType === 'permission' && (
+                       {requestType.startsWith('permission') && (
                          <div className="space-y-2">
                             <Label htmlFor="duration">مدة الإذن (بالساعات)</Label>
-                            <Input id="duration" type="number" value={durationHours} onChange={e => setDurationHours(Number(e.target.value))} placeholder="e.g. 2" required min="1"/>
+                            <Input id="duration" type="number" value={durationHours || ''} onChange={e => setDurationHours(Number(e.target.value))} placeholder="e.g. 2" required min="1"/>
                         </div>
                        )}
 
@@ -316,7 +317,7 @@ export default function EmployeeRequestsPage() {
                     <TableRow key={request.id}>
                       <TableCell className="font-medium text-right">{requestTypeConfig[request.requestType]}</TableCell>
                       <TableCell className="text-right text-sm">
-                         {request.requestType === 'permission' ? (
+                         {request.requestType.startsWith('permission') ? (
                             <span>{request.durationHours} ساعات في يوم {new Date(request.startDate).toLocaleDateString('ar-EG', { day: '2-digit', month: 'short' })}</span>
                         ) : (
                             <span dir="ltr">
@@ -357,7 +358,7 @@ export default function EmployeeRequestsPage() {
                         <CardContent className="p-4 pt-0 space-y-2 text-sm">
                            <div className="flex justify-between items-center">
                                 <span className="text-muted-foreground">الفترة/المدة:</span>
-                                {request.requestType === 'permission' ? (
+                                {request.requestType.startsWith('permission') ? (
                                     <span>{request.durationHours} ساعات في يوم {new Date(request.startDate).toLocaleDateString('ar-EG', { day: '2-digit', month: 'short' })}</span>
                                 ) : (
                                     <span dir="ltr">

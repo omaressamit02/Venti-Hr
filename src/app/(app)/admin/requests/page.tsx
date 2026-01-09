@@ -45,7 +45,7 @@ interface EmployeeRequest {
   id: string;
   employeeId: string;
   managerId?: string; // ID of the manager chosen to approve
-  requestType: 'leave_full_day' | 'leave_half_day' | 'mission' | 'permission';
+  requestType: 'leave_full_day' | 'leave_half_day' | 'mission' | 'permission_early' | 'permission_late';
   startDate: string;
   endDate: string;
   durationHours?: number;
@@ -68,7 +68,8 @@ const requestTypeConfig: { [key: string]: string } = {
     leave_full_day: 'إجازة يوم كامل',
     leave_half_day: 'إجازة نصف يوم',
     mission: 'مأمورية',
-    permission: 'إذن (خروج مبكر)',
+    permission_early: 'إذن (خروج مبكر)',
+    permission_late: 'إذن (حضور متأخر)',
 };
 
 export default function AdminRequestsPage() {
@@ -278,7 +279,7 @@ export default function AdminRequestsPage() {
                       <TableCell className="font-medium text-right">{request.employeeName}</TableCell>
                       <TableCell className="text-right">{requestTypeConfig[request.requestType]}</TableCell>
                       <TableCell className="text-right text-sm">
-                        {request.requestType === 'permission' ? (
+                        {request.requestType.startsWith('permission') ? (
                             <span>{request.durationHours} ساعات في يوم {new Date(request.startDate).toLocaleDateString('ar-EG', { day: '2-digit', month: 'short' })}</span>
                         ) : (
                             <span dir="ltr">
@@ -339,7 +340,7 @@ export default function AdminRequestsPage() {
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-muted-foreground">الفترة/المدة:</span>
-                                {request.requestType === 'permission' ? (
+                                {request.requestType.startsWith('permission') ? (
                                     <span>{request.durationHours} ساعات في يوم {new Date(request.startDate).toLocaleDateString('ar-EG', { day: '2-digit', month: 'short' })}</span>
                                 ) : (
                                     <span dir="ltr">
