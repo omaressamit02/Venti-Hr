@@ -208,6 +208,7 @@
           "description": "Base salary for the month."
         },
         "totalDelayMinutes": { "type": "number" },
+        "chargeableDelayMinutes": { "type": "number", "description": "Delay minutes after subtracting allowance." },
         "delayDeductions": { "type": "number" },
         "totalEarlyLeaveMinutes": { "type": "number" },
         "earlyLeaveDeductions": { "type": "number" },

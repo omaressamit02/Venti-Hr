@@ -117,6 +117,7 @@ interface PayrollItem {
     employeeCode: string;
     baseSalary: number;
     totalDelayMinutes: number;
+    chargeableDelayMinutes: number;
     delayDeductions: number;
     totalEarlyLeaveMinutes: number;
     earlyLeaveDeductions: number;
@@ -184,44 +185,45 @@ export function Payslip({ item, month, payable, companyName, formatCurrency }: P
                     </div>
                 </section>
 
-                <section className="my-6">
-                    <div className="grid grid-cols-2 gap-8">
-                        {/* Earnings */}
-                        <div>
-                            <h2 className="text-lg font-bold mb-2 pb-1 border-b">الاستحقاقات</h2>
-                            <div className="space-y-2">
-                                <div className="flex justify-between"><span>الراتب الأساسي</span><span className="font-mono">{formatCurrency(item.baseSalary)}</span></div>
-                                <div className="flex justify-between"><span>مكافآت</span><span className="font-mono">{formatCurrency(item.bonus)}</span></div>
-                                {item.fixedAdditions.map(add => (
-                                <div key={add.name} className="flex justify-between"><span>{add.name}</span><span className="font-mono">{formatCurrency(add.amount)}</span></div>
-                                ))}
-                            </div>
-                            <div className="flex justify-between font-bold text-lg mt-4 pt-2 border-t">
-                                <span>إجمالي الاستحقاقات</span>
-                                <span className="font-mono">{formatCurrency(item.baseSalary + totalAdditions)}</span>
-                            </div>
+                <section className="my-6 grid grid-cols-2 gap-8">
+                     {/* Earnings */}
+                    <div>
+                        <h2 className="text-lg font-bold mb-2 pb-1 border-b">الاستحقاقات</h2>
+                        <div className="space-y-2">
+                            <div className="flex justify-between"><span>الراتب الأساسي</span><span className="font-mono">{formatCurrency(item.baseSalary)}</span></div>
+                            <div className="flex justify-between"><span>مكافآت</span><span className="font-mono">{formatCurrency(item.bonus)}</span></div>
+                            {item.fixedAdditions.map(add => (
+                            <div key={add.name} className="flex justify-between"><span>{add.name}</span><span className="font-mono">{formatCurrency(add.amount)}</span></div>
+                            ))}
                         </div>
+                        <div className="flex justify-between font-bold text-lg mt-4 pt-2 border-t">
+                            <span>إجمالي الاستحقاقات</span>
+                            <span className="font-mono">{formatCurrency(item.baseSalary + totalAdditions)}</span>
+                        </div>
+                    </div>
 
-                        {/* Deductions */}
-                        <div>
-                            <h2 className="text-lg font-bold mb-2 pb-1 border-b">الاستقطاعات</h2>
-                            <div className="space-y-2">
-                                <div className="flex justify-between"><span>خصم التأخير</span><span className="font-mono">{formatCurrency(item.delayDeductions)}</span></div>
-                                <div className="flex justify-between"><span>خصم انصراف مبكر</span><span className="font-mono">{formatCurrency(item.earlyLeaveDeductions)}</span></div>
-                                <div className="flex justify-between"><span>خصم الغياب</span><span className="font-mono">{formatCurrency(item.absenceDeductions)}</span></div>
-                                <div className="flex justify-between"><span>خصم عدم الانصراف</span><span className="font-mono">{formatCurrency(item.incompleteRecordDeductions)}</span></div>
-                                <div className="flex justify-between"><span>خصم الإذن</span><span className="font-mono">{formatCurrency(item.permissionDeductions)}</span></div>
-                                <div className="flex justify-between"><span>جزاءات</span><span className="font-mono">{formatCurrency(item.penalty)}</span></div>
-                                <div className="flex justify-between"><span>قسط السلفة</span><span className="font-mono">{formatCurrency(item.loanDeduction)}</span></div>
-                                <div className="flex justify-between"><span>سلف جزئية</span><span className="font-mono">{formatCurrency(item.salaryAdvanceDeductions)}</span></div>
-                                 {item.fixedDeductions.map(ded => (
-                                <div key={ded.name} className="flex justify-between"><span>{ded.name}</span><span className="font-mono">{formatCurrency(ded.amount)}</span></div>
-                                ))}
+                    {/* Deductions */}
+                    <div>
+                        <h2 className="text-lg font-bold mb-2 pb-1 border-b">الاستقطاعات</h2>
+                        <div className="space-y-2">
+                            <div className="flex justify-between">
+                                <span>خصم التأخير (عن {item.chargeableDelayMinutes} دقيقة)</span>
+                                <span className="font-mono">{formatCurrency(item.delayDeductions)}</span>
                             </div>
-                             <div className="flex justify-between font-bold text-lg mt-4 pt-2 border-t">
-                                <span>إجمالي الاستقطاعات</span>
-                                <span className="font-mono">{formatCurrency(totalDeductions)}</span>
-                            </div>
+                            <div className="flex justify-between"><span>خصم انصراف مبكر</span><span className="font-mono">{formatCurrency(item.earlyLeaveDeductions)}</span></div>
+                            <div className="flex justify-between"><span>خصم الغياب</span><span className="font-mono">{formatCurrency(item.absenceDeductions)}</span></div>
+                            <div className="flex justify-between"><span>خصم عدم الانصراف</span><span className="font-mono">{formatCurrency(item.incompleteRecordDeductions)}</span></div>
+                            <div className="flex justify-between"><span>خصم الإذن</span><span className="font-mono">{formatCurrency(item.permissionDeductions)}</span></div>
+                            <div className="flex justify-between"><span>جزاءات</span><span className="font-mono">{formatCurrency(item.penalty)}</span></div>
+                            <div className="flex justify-between"><span>قسط السلفة</span><span className="font-mono">{formatCurrency(item.loanDeduction)}</span></div>
+                            <div className="flex justify-between"><span>سلف جزئية</span><span className="font-mono">{formatCurrency(item.salaryAdvanceDeductions)}</span></div>
+                             {item.fixedDeductions.map(ded => (
+                            <div key={ded.name} className="flex justify-between"><span>{ded.name}</span><span className="font-mono">{formatCurrency(ded.amount)}</span></div>
+                            ))}
+                        </div>
+                         <div className="flex justify-between font-bold text-lg mt-4 pt-2 border-t">
+                            <span>إجمالي الاستقطاعات</span>
+                            <span className="font-mono">{formatCurrency(totalDeductions)}</span>
                         </div>
                     </div>
                 </section>
@@ -425,6 +427,7 @@ export default function PayrollPage() {
             employeeCode: employee.employeeCode,
             baseSalary: employee.salary,
             totalDelayMinutes,
+            chargeableDelayMinutes,
             delayDeductions,
             totalEarlyLeaveMinutes,
             earlyLeaveDeductions,
@@ -615,3 +618,4 @@ export default function PayrollPage() {
     </div>
   );
 }
+
