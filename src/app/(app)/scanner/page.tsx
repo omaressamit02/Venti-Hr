@@ -218,31 +218,32 @@ export default function ScannerPage() {
     const findOpenAttendanceRecord = useCallback(async () => {
         if (!db || !userProfile) return null;
 
-        // We check today's and yesterday's month strings to cover overnight shifts
         const today = new Date();
         const yesterday = subDays(today, 1);
         const monthStrings = Array.from(new Set([format(today, 'yyyy-MM'), format(yesterday, 'yyyy-MM')]));
         
         for (const monthString of monthStrings) {
             const attendanceRef = ref(db, `attendance/${monthString}`);
-            // Fetch last 10 records for the user to be safe
             const q = query(attendanceRef, orderByChild('employeeId'), equalTo(userProfile.id), limitToLast(10));
             const snapshot = await get(q);
 
             if (snapshot.exists()) {
                 const records = Object.entries(snapshot.val()) as [string, AttendanceRecord][];
-                // Find the most recent record that has a checkIn but no checkOut
                 const openRecord = records
                     .sort((a, b) => new Date(b[1].checkIn).getTime() - new Date(a[1].checkIn).getTime())
                     .find(([, record]) => record.checkIn && !record.checkOut);
                 
                 if (openRecord) {
-                    const [recordId] = openRecord;
-                    // Check if it's within a reasonable time frame (e.g., 24 hours)
-                    const checkInTime = new Date(openRecord[1].checkIn).getTime();
-                    if ((today.getTime() - checkInTime) < 24 * 60 * 60 * 1000) {
-                         return { recordId, path: `attendance/${monthString}/${recordId}` };
+                    const [recordId, recordData] = openRecord;
+                    const checkInTime = new Date(recordData.checkIn).getTime();
+                    const hoursSinceCheckIn = (today.getTime() - checkInTime) / (1000 * 60 * 60);
+
+                    // If it's been more than 16 hours, consider it a missed checkout from the previous day.
+                    if (hoursSinceCheckIn > 16) {
+                        return null; 
                     }
+                    
+                    return { recordId, path: `attendance/${monthString}/${recordId}` };
                 }
             }
         }
