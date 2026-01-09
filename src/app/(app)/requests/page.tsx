@@ -2,7 +2,17 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -15,7 +25,6 @@ import { Badge } from '@/components/ui/badge';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
 import { ref, push, query, type Query } from 'firebase/database';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -37,6 +46,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog"
 import { Textarea } from '@/components/ui/textarea';
+import { format } from 'date-fns';
 
 
 interface EmployeeRequest {
@@ -86,8 +96,8 @@ export default function EmployeeRequestsPage() {
 
   // New Request Form State
   const [requestType, setRequestType] = useState<'leave_full_day' | 'leave_half_day' | 'mission' | 'permission_early' | 'permission_late'>('leave_full_day');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [durationHours, setDurationHours] = useState<number | undefined>(undefined);
   const [notes, setNotes] = useState('');
   const [selectedManager, setSelectedManager] = useState('');
@@ -186,8 +196,9 @@ export default function EmployeeRequestsPage() {
         setDialogOpen(false);
         // Reset form
         setRequestType('leave_full_day');
-        setStartDate('');
-        setEndDate('');
+        const today = format(new Date(), 'yyyy-MM-dd');
+        setStartDate(today);
+        setEndDate(today);
         setDurationHours(undefined);
         setNotes('');
 

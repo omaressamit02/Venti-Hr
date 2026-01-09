@@ -336,6 +336,8 @@ export default function PayrollPage() {
             }
         });
         const approvedLeaveDeductions = 0; // Leaves are unpaid days, handled in absence calc
+        const permissionDeductions = approvedEarlyLeavePermissionHours * hourlyRate;
+
 
         // 3. Absence Calculation
         const dayOff = employee.dayOff ? parseInt(employee.dayOff, 10) : -1;
@@ -355,7 +357,6 @@ export default function PayrollPage() {
         });
         const absenceDeductions = absenceDays * (settings.deductionForAbsence || 0) * dailyRate;
         const incompleteRecordDeductions = incompleteRecords * (settings.deductionForIncompleteRecord || 0) * dailyRate;
-        const permissionDeductions = approvedEarlyLeavePermissionHours * hourlyRate;
 
         // 4. Delay & Early Leave Deductions
         let delayDeductions = 0;
