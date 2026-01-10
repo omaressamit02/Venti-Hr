@@ -45,6 +45,7 @@ const employeeFormSchema = z.object({
   isManager: z.boolean().default(false),
   disableDeductions: z.boolean().default(false),
   locationLoginRequired: z.boolean().default(false),
+  allowLoginFromAnyDevice: z.boolean().default(false),
 });
 
 export type EmployeeFormData = z.infer<typeof employeeFormSchema>;
@@ -87,6 +88,7 @@ export function EmployeeForm({ onSubmit, defaultValues = {}, currentEmployeeId }
       disableDeductions: false,
       locationLoginRequired: false,
       isManager: false,
+      allowLoginFromAnyDevice: false,
       permissions: navItems.filter(item => !item.adminOnly && !item.superAdminOnly).map(i => i.href),
       ...defaultValues,
     },
@@ -380,6 +382,20 @@ export function EmployeeForm({ onSubmit, defaultValues = {}, currentEmployeeId }
                     render={({ field }) => (
                         <Switch
                             id="locationLoginRequired"
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                    )}
+                />
+            </div>
+             <div className="flex items-center justify-between">
+                <Label htmlFor="allowLoginFromAnyDevice" className="flex-grow">السماح بالدخول من أي جهاز</Label>
+                 <Controller
+                    name="allowLoginFromAnyDevice"
+                    control={control}
+                    render={({ field }) => (
+                        <Switch
+                            id="allowLoginFromAnyDevice"
                             checked={field.value}
                             onCheckedChange={field.onChange}
                         />

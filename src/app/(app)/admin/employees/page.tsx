@@ -47,7 +47,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { PlusCircle, MoreVertical, HandCoins, MinusCircle, Edit, CheckCircle, ShieldAlert, XCircle, RotateCcw, Search, Upload, Download, Users, UserCog, Archive, Trash2, Clock, MapPin, BadgePercent, Wallet, Lock } from 'lucide-react';
+import { PlusCircle, MoreVertical, HandCoins, MinusCircle, Edit, CheckCircle, ShieldAlert, XCircle, RotateCcw, Search, Upload, Download, Users, UserCog, Archive, Trash2, Clock, MapPin, BadgePercent, Wallet, Lock, Wifi } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import {
   Table,
@@ -101,6 +101,7 @@ interface Employee {
   isManager?: boolean;
   disableDeductions?: boolean;
   locationLoginRequired?: boolean;
+  allowLoginFromAnyDevice?: boolean;
 }
 
 type Location = {
@@ -327,6 +328,7 @@ export default function EmployeesPage() {
         userStatus: 'Active',
         disableDeductions: formData.disableDeductions,
         locationLoginRequired: formData.locationLoginRequired,
+        allowLoginFromAnyDevice: formData.allowLoginFromAnyDevice,
       };
       
       await set(newEmployeeRef, newEmployeeData);
@@ -371,6 +373,7 @@ export default function EmployeesPage() {
         isManager: formData.isManager,
         disableDeductions: formData.disableDeductions,
         locationLoginRequired: formData.locationLoginRequired,
+        allowLoginFromAnyDevice: formData.allowLoginFromAnyDevice,
       };
       if (formData.password) {
         updatedData.password = formData.password;
@@ -1021,7 +1024,7 @@ export default function EmployeesPage() {
                     />
                   </TableHead>
                   <TableHead className="text-right">اسم الموظف</TableHead>
-                  <TableHead className="text-right">الحالة / الخصم</TableHead>
+                  <TableHead className="text-right">الحالة / الخصائص</TableHead>
                   <TableHead className="text-right">الفرع / المدير</TableHead>
                   <TableHead className="text-left">الراتب</TableHead>
                   <TableHead className="text-right">معرف الجهاز</TableHead>
@@ -1073,6 +1076,12 @@ export default function EmployeesPage() {
                                 <Badge variant="outline" className="border-blue-500 text-blue-500">
                                     <Lock className="h-3 w-3 ml-1" />
                                     الدخول من الفرع
+                                </Badge>
+                            )}
+                             {employee.allowLoginFromAnyDevice && (
+                                <Badge variant="outline" className="border-purple-500 text-purple-500">
+                                    <Wifi className="h-3 w-3 ml-1" />
+                                    دخول من أي جهاز
                                 </Badge>
                             )}
                         </div>
@@ -1276,6 +1285,12 @@ export default function EmployeesPage() {
                                     <Badge variant="outline" className="border-blue-500 text-blue-500 mr-2">
                                         <Lock className="h-3 w-3 ml-1" />
                                         الدخول من الفرع
+                                    </Badge>
+                                )}
+                                {employee.allowLoginFromAnyDevice && (
+                                    <Badge variant="outline" className="border-purple-500 text-purple-500 mr-2">
+                                        <Wifi className="h-3 w-3 ml-1" />
+                                        دخول من أي جهاز
                                     </Badge>
                                 )}
                             </div>

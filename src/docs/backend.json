@@ -76,6 +76,10 @@
         "locationLoginRequired": {
             "type": "boolean",
             "description": "If true, the employee must be within the specified location radius to log in."
+        },
+        "allowLoginFromAnyDevice": {
+            "type": "boolean",
+            "description": "If true, this employee can log in from any device, bypassing the device ID check."
         }
       },
       "required": [

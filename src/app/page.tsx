@@ -32,6 +32,7 @@ interface Employee {
   userStatus: 'Active' | 'Inactive' | 'Pending' | 'Archived';
   deviceId?: string;
   locationLoginRequired?: boolean;
+  allowLoginFromAnyDevice?: boolean;
   locationIds?: string[];
 }
 
@@ -227,31 +228,33 @@ export default function LoginPage() {
         if (foundEmployee.password === password) {
             let employeeToLogin = { ...foundEmployee, id };
 
-            // --- New Device ID Logic ---
-            let localDeviceId = localStorage.getItem('device_id');
-            
-            if (!foundEmployee.deviceId && db) { // First login ever for this user
-                if (!localDeviceId) {
-                    localDeviceId = generateUUID();
-                    localStorage.setItem('device_id', localDeviceId);
-                }
-                await update(ref(db, `employees/${id}`), { deviceId: localDeviceId });
-                employeeToLogin.deviceId = localDeviceId; // Update local object
-                toast({
-                    title: 'تم تسجيل هذا الجهاز',
-                    description: 'تم ربط هذا الجهاز بحسابك بنجاح.',
-                });
-            } else if (foundEmployee.deviceId) { // Device is already registered
-                 if (!localDeviceId) { // Trying to log in from a new browser/incognito
-                    logLoginAttempt({ employeeId: id, employeeName: foundEmployee.employeeName, employeeCode, status: 'failure', failureReason: 'Device mismatch (no local ID)' });
-                    throw new Error('لا يمكنك تسجيل الدخول من هذا الجهاز. يرجى استخدام جهازك المسجل.');
-                }
-                if (foundEmployee.deviceId !== localDeviceId) {
-                    logLoginAttempt({ employeeId: id, employeeName: foundEmployee.employeeName, employeeCode, status: 'failure', failureReason: 'Device ID mismatch' });
-                    throw new Error('لا يمكنك تسجيل الدخول من هذا الجهاز. يرجى استخدام جهازك المسجل أو الطلب من المدير إعادة تعيينه.');
+            // --- Device ID Logic ---
+            if (!foundEmployee.allowLoginFromAnyDevice) {
+                let localDeviceId = localStorage.getItem('device_id');
+                
+                if (!foundEmployee.deviceId && db) { // First login ever for this user
+                    if (!localDeviceId) {
+                        localDeviceId = generateUUID();
+                        localStorage.setItem('device_id', localDeviceId);
+                    }
+                    await update(ref(db, `employees/${id}`), { deviceId: localDeviceId });
+                    employeeToLogin.deviceId = localDeviceId; // Update local object
+                    toast({
+                        title: 'تم تسجيل هذا الجهاز',
+                        description: 'تم ربط هذا الجهاز بحسابك بنجاح.',
+                    });
+                } else if (foundEmployee.deviceId) { // Device is already registered
+                     if (!localDeviceId) { // Trying to log in from a new browser/incognito
+                        logLoginAttempt({ employeeId: id, employeeName: foundEmployee.employeeName, employeeCode, status: 'failure', failureReason: 'Device mismatch (no local ID)' });
+                        throw new Error('لا يمكنك تسجيل الدخول من هذا الجهاز. يرجى استخدام جهازك المسجل.');
+                    }
+                    if (foundEmployee.deviceId !== localDeviceId) {
+                        logLoginAttempt({ employeeId: id, employeeName: foundEmployee.employeeName, employeeCode, status: 'failure', failureReason: 'Device ID mismatch' });
+                        throw new Error('لا يمكنك تسجيل الدخول من هذا الجهاز. يرجى استخدام جهازك المسجل أو الطلب من المدير إعادة تعيينه.');
+                    }
                 }
             }
-            // --- End of New Device ID Logic ---
+            // --- End of Device ID Logic ---
 
 
             // Special handling for 'Pending' users
