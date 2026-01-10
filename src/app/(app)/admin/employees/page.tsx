@@ -48,7 +48,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { PlusCircle, MoreVertical, HandCoins, MinusCircle, Edit, CheckCircle, ShieldAlert, XCircle, RotateCcw, Search, Upload, Download, Users, UserCog, Archive, Trash2, Clock, MapPin, BadgePercent, Wallet, Lock, Wifi } from 'lucide-react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -233,6 +233,7 @@ export default function EmployeesPage() {
   const employeesListForManager = useMemo(() => {
     if (!employeesData) return [];
     return Object.entries(employeesData)
+        .filter(([, emp]) => emp.isManager)
         .map(([id, data]) => ({ value: id, label: data.employeeName }));
   }, [employeesData]);
   
@@ -260,31 +261,32 @@ export default function EmployeesPage() {
     setIsClient(true);
   }, []);
 
-  useEffect(() => {
-    const seedDatabase = async () => {
-        if (db && user && !isLoading && allEmployees && allEmployees.length === 0) {
-            const defaultEmployeeRef = ref(db, `employees/${user.uid}`);
-            const defaultEmployee = {
-                employeeName: 'المدير العام',
-                employeeCode: 'ADMIN',
-                phoneNumber: '01000000000',
-                gender: 'male',
-                salary: 10000,
-                shiftConfiguration: 'general' as 'general' | 'custom',
-                permissions: navItems.map(item => item.href),
-                userStatus: 'Active' as 'Active',
-                dayOff: '5',
-                isManager: true,
-            };
-            await set(defaultEmployeeRef, defaultEmployee);
-            toast({
-                title: 'تم إنشاء موظف افتراضي',
-                description: 'تم إضافة "المدير العام" لتمكينك من بدء استخدام النظام.',
-            });
-        }
-    };
-    seedDatabase();
+  const seedDatabase = useCallback(async () => {
+    if (db && user && !isLoading && allEmployees && allEmployees.length === 0) {
+        const defaultEmployeeRef = ref(db, `employees/${user.uid}`);
+        const defaultEmployee = {
+            employeeName: 'المدير العام',
+            employeeCode: 'ADMIN',
+            phoneNumber: '01000000000',
+            gender: 'male' as const,
+            salary: 10000,
+            shiftConfiguration: 'general' as const,
+            permissions: navItems.map(item => item.href),
+            userStatus: 'Active' as const,
+            dayOff: '5',
+            isManager: true,
+        };
+        await set(defaultEmployeeRef, defaultEmployee);
+        toast({
+            title: 'تم إنشاء موظف افتراضي',
+            description: 'تم إضافة "المدير العام" لتمكينك من بدء استخدام النظام.',
+        });
+    }
   }, [db, user, isLoading, allEmployees, toast]);
+
+  useEffect(() => {
+    seedDatabase();
+  }, [seedDatabase]);
 
 
   const handleSaveEmployee = async (formData: EmployeeFormData) => {
