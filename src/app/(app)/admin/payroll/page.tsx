@@ -29,9 +29,11 @@ import {
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
+    DialogFooter,
 } from '@/components/ui/dialog';
 import { Calculator, CheckCircle, DollarSign, Send, FileSpreadsheet, Printer, Loader2, Info, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -261,6 +263,9 @@ export default function PayrollPage() {
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
   const db = useDb();
+  
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [sharingItem, setSharingItem] = useState<PayrollItem | null>(null);
 
   // --- Data Fetching ---
   const employeesRef = useMemoFirebase(() => db ? ref(db, 'employees') : null, [db]);
@@ -491,8 +496,13 @@ export default function PayrollPage() {
     const netSalary = item.baseSalary + totalAdditions - totalDeductions;
     return { netSalary, totalAdditions, totalDeductions };
   }
+  
+  const handleOpenShareDialog = (item: PayrollItem) => {
+    setSharingItem(item);
+    setIsShareDialogOpen(true);
+  };
 
-  const handleShareWhatsApp = (item: PayrollItem) => {
+  const generateShareMessage = (item: PayrollItem) => {
     const { netSalary, totalDeductions, totalAdditions } = calculatePayable(item);
     const monthName = new Date(selectedMonth + '-02').toLocaleDateString('ar', { month: 'long', year: 'numeric' });
 
@@ -505,6 +515,11 @@ export default function PayrollPage() {
     message += `*صافي الراتب المستحق:* *${formatCurrency(netSalary)} ج.م*\n\n`;
     message += `\n---\n_تم إنشاؤه بواسطة نظام ${settings?.companyName || 'Hضورى'}_`;
 
+    return message;
+  }
+
+  const handleShareWhatsApp = (item: PayrollItem) => {
+    const message = generateShareMessage(item);
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
   };
@@ -583,7 +598,7 @@ export default function PayrollPage() {
                                           </Button>
                                         </DialogTrigger>
                                     </Dialog>
-                                    <Button variant="ghost" size="sm" onClick={() => handleShareWhatsApp(item)}>
+                                    <Button variant="ghost" size="sm" onClick={() => handleOpenShareDialog(item)}>
                                         <Share2 className="h-4 w-4 text-green-600" />
                                     </Button>
                                 </div>
@@ -637,7 +652,36 @@ export default function PayrollPage() {
                 )}
             </DialogContent>
         </Dialog>
+
+      {/* Share Dialog */}
+       <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>مشاركة ملخص الراتب</DialogTitle>
+                    <DialogDescription>
+                        هذه هي الرسالة التي سيتم تجهيزها للمشاركة عبر واتساب.
+                    </DialogDescription>
+                </DialogHeader>
+                {sharingItem && (
+                    <div className="p-4 my-4 bg-muted/50 rounded-lg text-sm whitespace-pre-wrap" dir="rtl">
+                       {generateShareMessage(sharingItem)}
+                    </div>
+                )}
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsShareDialogOpen(false)}>إلغاء</Button>
+                    <Button onClick={() => {
+                        if (sharingItem) {
+                            handleShareWhatsApp(sharingItem);
+                        }
+                        setIsShareDialogOpen(false);
+                    }}>
+                        <Share2 className="ml-2 h-4 w-4"/>
+                        مشاركة الآن
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
     </div>
   );
 }
-
