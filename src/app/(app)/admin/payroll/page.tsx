@@ -131,12 +131,12 @@ interface PayrollItem {
     penalty: number;
     loanDeduction: number;
     salaryAdvanceDeductions: number;
-    fixedDeductions: { name: string; amount: number }[];
-    fixedAdditions: { name: string; amount: number }[];
     paid: boolean;
     locationName: string;
     appliedDelayRule?: string;
     appliedEarlyLeaveRule?: string;
+    fixedDeductions: { name: string; amount: number }[];
+    fixedAdditions: { name: string; amount: number }[];
 }
 
 interface PayslipProps {
@@ -505,14 +505,68 @@ export default function PayrollPage() {
   const generateShareMessage = (item: PayrollItem) => {
     const { netSalary, totalDeductions, totalAdditions } = calculatePayable(item);
     const monthName = new Date(selectedMonth + '-02').toLocaleDateString('ar', { month: 'long', year: 'numeric' });
+    const formatValue = (value: number) => `${formatCurrency(value)} ج.م`;
 
     let message = `*كشف راتب شهر ${monthName}*\n\n`;
-    message += `*الموظف:* ${item.employeeName}\n`;
+    
+    message += `*بيانات الموظف*\n`;
+    message += `*الاسم:* ${item.employeeName}\n`;
     message += `*الكود:* ${item.employeeCode}\n\n`;
-    message += `*الراتب الأساسي:* ${formatCurrency(item.baseSalary)} ج.م\n`;
-    message += `*إجمالي الإضافات:* ${formatCurrency(totalAdditions)} ج.م\n`;
-    message += `*إجمالي الخصومات:* ${formatCurrency(totalDeductions)} ج.م\n\n`;
-    message += `*صافي الراتب المستحق:* *${formatCurrency(netSalary)} ج.م*\n\n`;
+    message += `---------------------\n\n`;
+    
+    // Earnings
+    message += `*الاستحقاقات*\n`;
+    message += `الراتب الأساسي: ${formatValue(item.baseSalary)}\n`;
+    if (item.bonus > 0) {
+        message += `مكافآت: ${formatValue(item.bonus)}\n`;
+    }
+    item.fixedAdditions.forEach(addition => {
+        if (addition.amount > 0) {
+            message += `${addition.name}: ${formatValue(addition.amount)}\n`;
+        }
+    });
+    message += `*إجمالي الاستحقاقات: ${formatValue(item.baseSalary + totalAdditions)}*\n\n`;
+    
+    message += `---------------------\n\n`;
+    
+    // Deductions
+    message += `*الاستقطاعات*\n`;
+    if (item.delayDeductions > 0) {
+        message += `خصم التأخير (عن ${item.chargeableDelayMinutes} دقيقة): ${formatValue(item.delayDeductions)}\n`;
+    }
+    if (item.earlyLeaveDeductions > 0) {
+        message += `خصم انصراف مبكر: ${formatValue(item.earlyLeaveDeductions)}\n`;
+    }
+    if (item.absenceDeductions > 0) {
+        message += `خصم الغياب: ${formatValue(item.absenceDeductions)}\n`;
+    }
+    if (item.incompleteRecordDeductions > 0) {
+        message += `خصم عدم الانصراف: ${formatValue(item.incompleteRecordDeductions)}\n`;
+    }
+    if (item.permissionDeductions > 0) {
+        message += `خصم الإذن: ${formatValue(item.permissionDeductions)}\n`;
+    }
+    if (item.penalty > 0) {
+        message += `جزاءات: ${formatValue(item.penalty)}\n`;
+    }
+    if (item.loanDeduction > 0) {
+        message += `قسط السلفة: ${formatValue(item.loanDeduction)}\n`;
+    }
+    if (item.salaryAdvanceDeductions > 0) {
+        message += `سلف جزئية: ${formatValue(item.salaryAdvanceDeductions)}\n`;
+    }
+    item.fixedDeductions.forEach(deduction => {
+        if (deduction.amount > 0) {
+            message += `${deduction.name}: ${formatValue(deduction.amount)}\n`;
+        }
+    });
+    message += `*إجمالي الاستقطاعات: ${formatValue(totalDeductions)}*\n\n`;
+
+    message += `---------------------\n\n`;
+    
+    // Net Salary
+    message += `💰 *صافي الراتب المستحق: ${formatValue(netSalary)}*\n\n`;
+    
     message += `\n---\n_تم إنشاؤه بواسطة نظام ${settings?.companyName || 'Hضورى'}_`;
 
     return message;
@@ -578,7 +632,7 @@ export default function PayrollPage() {
             </TableHeader>
             <TableBody>
               {isLoading && !isCalculating ? (
-                  Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-10 w-full"/></TableCell></TableRow>)
+                  Array.from({length: 3}).map((_, i) => <TableRow key="loading-row-${i}"><TableCell colSpan={6}><Skeleton className="h-10 w-full"/></TableCell></TableRow>)
               ) : payrollData.length > 0 ? (
                 payrollData.map((item) => {
                     const { netSalary, totalDeductions, totalAdditions } = calculatePayable(item);
@@ -685,3 +739,4 @@ export default function PayrollPage() {
     </div>
   );
 }
+
