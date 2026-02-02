@@ -35,7 +35,7 @@ import {
     DialogTrigger,
     DialogFooter,
 } from '@/components/ui/dialog';
-import { Calculator, CheckCircle, DollarSign, Send, FileSpreadsheet, Printer, Loader2, Info, Share2 } from 'lucide-react';
+import { Calculator, CheckCircle, DollarSign, Send, FileSpreadsheet, Printer, Loader2, Info, Share2, IndianRupee } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
@@ -209,7 +209,7 @@ export function Payslip({ item, month, payable, companyName, formatCurrency }: P
                         <h2 className="text-lg font-bold mb-2 pb-1 border-b">الاستقطاعات</h2>
                         <div className="space-y-2">
                             <div className="flex justify-between">
-                                <span>خصم التأخير (عن {item.chargeableDelayMinutes} دقيقة)</span>
+                                <span>خصم التأخير (بعد السماحية: {item.chargeableDelayMinutes} دقيقة)</span>
                                 <span className="font-mono">{formatCurrency(item.delayDeductions)}</span>
                             </div>
                             <div className="flex justify-between"><span>خصم انصراف مبكر</span><span className="font-mono">{formatCurrency(item.earlyLeaveDeductions)}</span></div>
@@ -374,7 +374,11 @@ export default function PayrollPage() {
         const netDelayMinutes = Math.max(0, totalDelayMinutes - approvedLateArrivalPermissionMinutes);
         const chargeableDelayMinutes = Math.max(0, netDelayMinutes - lateAllowance);
 
-        const deductionRules = settings.deductionRules || [];
+        const deductionRulesRaw = settings.deductionRules || [];
+        const deductionRules: DeductionRule[] = Array.isArray(deductionRulesRaw)
+          ? deductionRulesRaw
+          : Object.values(deductionRulesRaw);
+
 
         if (chargeableDelayMinutes > 0 && deductionRules.length > 0) {
             const applicableRule = deductionRules.sort((a,b) => a.fromMinutes - b.fromMinutes).find(rule => chargeableDelayMinutes >= rule.fromMinutes && chargeableDelayMinutes <= rule.toMinutes);
@@ -389,7 +393,10 @@ export default function PayrollPage() {
         
         let earlyLeaveDeductions = 0;
         let appliedEarlyLeaveRule = 'N/A';
-        const earlyLeaveRules = settings.earlyLeaveDeductionRules || [];
+        const earlyLeaveRulesRaw = settings.earlyLeaveDeductionRules || [];
+        const earlyLeaveRules: DeductionRule[] = Array.isArray(earlyLeaveRulesRaw)
+          ? earlyLeaveRulesRaw
+          : Object.values(earlyLeaveRulesRaw);
 
          if (totalEarlyLeaveMinutes > 0 && earlyLeaveRules.length > 0) {
             const applicableRule = earlyLeaveRules.sort((a,b) => a.fromMinutes - b.fromMinutes).find(rule => totalEarlyLeaveMinutes >= rule.fromMinutes && totalEarlyLeaveMinutes <= rule.toMinutes);
@@ -632,7 +639,7 @@ export default function PayrollPage() {
             </TableHeader>
             <TableBody>
               {isLoading && !isCalculating ? (
-                  Array.from({length: 3}).map((_, i) => <TableRow key="loading-row-${i}"><TableCell colSpan={6}><Skeleton className="h-10 w-full"/></TableCell></TableRow>)
+                  Array.from({length: 3}).map((_, i) => <TableRow key={`loading-row-${i}`}><TableCell colSpan={6}><Skeleton className="h-10 w-full"/></TableCell></TableRow>)
               ) : payrollData.length > 0 ? (
                 payrollData.map((item) => {
                     const { netSalary, totalDeductions, totalAdditions } = calculatePayable(item);
@@ -641,7 +648,7 @@ export default function PayrollPage() {
                             <TableCell className="text-right font-medium">{item.employeeName}</TableCell>
                             <TableCell className="text-left font-mono">{formatCurrency(item.baseSalary)} ج.م</TableCell>
                             <TableCell className="text-green-600 text-left font-mono">{formatCurrency(totalAdditions)} ج.م</TableCell>
-                            <TableCell className="text-red-700 text-left font-mono">{formatCurrency(totalDeductions)} ج.م</TableCell>
+                            <TableCell className="text-destructive text-left font-mono">{formatCurrency(totalDeductions)} ج.م</TableCell>
                             <TableCell className="font-bold text-primary text-left font-mono">{formatCurrency(netSalary)} ج.م</TableCell>
                             <TableCell className="text-center">
                                 <div className="flex items-center justify-center">
@@ -740,3 +747,6 @@ export default function PayrollPage() {
   );
 }
 
+
+
+    
