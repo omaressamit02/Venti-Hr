@@ -33,7 +33,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
-import { Calculator, CheckCircle, DollarSign, Send, FileSpreadsheet, Printer, Loader2, Info } from 'lucide-react';
+import { Calculator, CheckCircle, DollarSign, Send, FileSpreadsheet, Printer, Loader2, Info, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
@@ -492,6 +492,23 @@ export default function PayrollPage() {
     return { netSalary, totalAdditions, totalDeductions };
   }
 
+  const handleShareWhatsApp = (item: PayrollItem) => {
+    const { netSalary, totalDeductions, totalAdditions } = calculatePayable(item);
+    const monthName = new Date(selectedMonth + '-02').toLocaleDateString('ar', { month: 'long', year: 'numeric' });
+
+    let message = `*كشف راتب شهر ${monthName}*\n\n`;
+    message += `*الموظف:* ${item.employeeName}\n`;
+    message += `*الكود:* ${item.employeeCode}\n\n`;
+    message += `*الراتب الأساسي:* ${formatCurrency(item.baseSalary)} ج.م\n`;
+    message += `*إجمالي الإضافات:* ${formatCurrency(totalAdditions)} ج.م\n`;
+    message += `*إجمالي الخصومات:* ${formatCurrency(totalDeductions)} ج.م\n\n`;
+    message += `*صافي الراتب المستحق:* *${formatCurrency(netSalary)} ج.م*\n\n`;
+    message += `\n---\n_تم إنشاؤه بواسطة نظام ${settings?.companyName || 'Hضورى'}_`;
+
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+  };
+
   const months = Array.from({ length: 12 }, (_, i) => format(subMonths(new Date(), i), 'yyyy-MM'));
   const formatCurrency = (amount: number) => (isClient ? amount.toLocaleString('ar', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : amount);
   const isLoading = isEmployeesLoading || isAttendanceLoading || isTransactionsLoading || isSettingsLoading || isRequestsLoading || isPaidLoading;
@@ -558,13 +575,18 @@ export default function PayrollPage() {
                             <TableCell className="text-red-700 text-left font-mono">{formatCurrency(totalDeductions)} ج.م</TableCell>
                             <TableCell className="font-bold text-primary text-left font-mono">{formatCurrency(netSalary)} ج.م</TableCell>
                             <TableCell className="text-center">
-                                <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button variant="ghost" size="sm" onClick={() => setSelectedPayslip({ item, payable: netSalary })}>
-                                        <Printer className="h-4 w-4" />
-                                      </Button>
-                                    </DialogTrigger>
-                                </Dialog>
+                                <div className="flex items-center justify-center">
+                                    <Dialog>
+                                        <DialogTrigger asChild>
+                                          <Button variant="ghost" size="sm" onClick={() => setSelectedPayslip({ item, payable: netSalary })}>
+                                            <Printer className="h-4 w-4" />
+                                          </Button>
+                                        </DialogTrigger>
+                                    </Dialog>
+                                    <Button variant="ghost" size="sm" onClick={() => handleShareWhatsApp(item)}>
+                                        <Share2 className="h-4 w-4 text-green-600" />
+                                    </Button>
+                                </div>
                             </TableCell>
                         </TableRow>
                     )
