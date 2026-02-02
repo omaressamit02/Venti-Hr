@@ -18,6 +18,7 @@ import {
   BarChart3,
   FileClock,
   Upload,
+  History,
 } from 'lucide-react';
 
 export const navItems = [
@@ -34,7 +35,8 @@ export const navItems = [
   { href: '/admin/attendance', icon: CalendarCheck, label: 'مراقبة الحضور', adminOnly: true },
   { href: '/admin/attendance-upload', icon: Upload, label: 'رفع السجلات من ماكينة البصمة', adminOnly: true },
   { href: '/admin/payroll', icon: Wallet, label: 'الرواتب الشهرية', adminOnly: true },
-  { href: '/admin/loans', icon: HandCoins, label: 'السجلات المالية', adminOnly: true },
+  { href: '/admin/daily-payroll', icon: HandCoins, label: 'الدفع اليومي والسلف', adminOnly: true },
+  { href: '/admin/loans', icon: History, label: 'السجلات المالية', adminOnly: true },
   { href: '/admin/login-logs', icon: KeyRound, label: 'سجل الدخول', adminOnly: true, superAdminOnly: true },
   { href: '/admin/regulations', icon: ScrollText, label: 'اللوائح والقواعد', adminOnly: true },
   { href: '/admin/database', icon: Database, label: 'إدارة البيانات', adminOnly: true, superAdminOnly: true },
