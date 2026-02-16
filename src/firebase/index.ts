@@ -19,7 +19,7 @@ export function initializeFirebase() {
 
 export function getSdks(firebaseApp: FirebaseApp) {
   const firestore = getFirestore(firebaseApp);
-  const db = firebaseConfig.databaseURL ? getDatabase(firebaseApp) : null;
+  const db = firebaseConfig.databaseURL ? getDatabase(firebaseApp, firebaseConfig.databaseURL) : null;
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
