@@ -1,13 +1,12 @@
 
 export const firebaseConfig = {
-  "apiKey": "AIzaSyCXifugwsnfa95B7n2VHlTSugMhzm-Hp1c",
-  "authDomain": "hrproject-cefd9.firebaseapp.com",
-  "databaseURL": "https://hrproject-cefd9-default-rtdb.europe-west1.firebasedatabase.app",
-  "projectId": "hrproject-cefd9",
-  "storageBucket": "hrproject-cefd9.appspot.com",
-  "messagingSenderId": "77899313298",
-  "appId": "1:77899313298:web:3c5e44d5df3daa1822b64b",
-  "measurementId": "G-202WB33MTW"
+  "apiKey": "AIzaSyAwV9BvdaMCTXq2L2q6L6B4dYgL9yMvX_Y",
+  "authDomain": "venti-hr.firebaseapp.com",
+  "databaseURL": "https://venti-hr-default-rtdb.firebaseio.com",
+  "projectId": "venti-hr",
+  "storageBucket": "venti-hr.appspot.com",
+  "messagingSenderId": "910269639534",
+  "appId": "1:910269639534:web:06e4a2c5a1b383842c16c9",
+  "measurementId": "G-5YJ72T1L6J"
 };
-
     
