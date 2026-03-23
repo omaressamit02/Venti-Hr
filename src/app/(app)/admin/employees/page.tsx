@@ -207,6 +207,21 @@ export default function EmployeesPage() {
   const { toast } = useToast();
   const { user } = useUser();
 
+  // --- Aggressive Cleanup for Pointer Events ---
+  useEffect(() => {
+    const isAnyModalOpen = isFormOpen || isEditFormOpen || isActionFormOpen || isUploadDialogOpen || isBulkManagerDialogOpen || isBulkPermissionsDialogOpen || isBulkDeleteDialogOpen || isBulkShiftDialogOpen || isBulkLocationDialogOpen || isBulkStatusDialogOpen;
+    
+    if (!isAnyModalOpen) {
+      // Small delay to ensure Radix finishes its own cleanup cycle
+      const timer = setTimeout(() => {
+        document.body.style.pointerEvents = 'auto';
+        document.body.style.overflow = 'auto';
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isFormOpen, isEditFormOpen, isActionFormOpen, isUploadDialogOpen, isBulkManagerDialogOpen, isBulkPermissionsDialogOpen, isBulkDeleteDialogOpen, isBulkShiftDialogOpen, isBulkLocationDialogOpen, isBulkStatusDialogOpen]);
+
+
   const employeesRef = useMemoFirebase(() => db ? ref(db, 'employees') : null, [db]);
   const [employeesData, isLoading] = useDbData<Record<string, Omit<Employee, 'id'>>>(employeesRef);
   
@@ -438,7 +453,10 @@ export default function EmployeesPage() {
 
   const handleOpenEditDialog = (employee: Employee) => {
     setEditingEmployee(employee);
-    setIsEditFormOpen(true);
+    // Force a small delay when opening from dropdown
+    setTimeout(() => {
+      setIsEditFormOpen(true);
+    }, 100);
   };
 
   const handleOpenActionDialog = async (employee: Employee, type: FinancialAction) => {
@@ -527,7 +545,10 @@ export default function EmployeesPage() {
         setMonthlySummary({ totalAdvances, totalFixedDeductions, totalDelayDeductions, remainingSalary });
     }
 
-    setIsActionFormOpen(true);
+    // Force a small delay when opening from dropdown
+    setTimeout(() => {
+      setIsActionFormOpen(true);
+    }, 100);
   };
   
   const handleSaveFinancialAction = async () => {
@@ -982,28 +1003,40 @@ export default function EmployeesPage() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
-                        <DropdownMenuItem onSelect={() => setIsBulkManagerDialogOpen(true)}>
+                        <DropdownMenuItem onSelect={() => {
+                          setTimeout(() => setIsBulkManagerDialogOpen(true), 100);
+                        }}>
                             <Users className="ml-2 h-4 w-4" />
                             تحديد مدير
                         </DropdownMenuItem>
-                         <DropdownMenuItem onSelect={() => setIsBulkLocationDialogOpen(true)}>
+                         <DropdownMenuItem onSelect={() => {
+                           setTimeout(() => setIsBulkLocationDialogOpen(true), 100);
+                         }}>
                             <MapPin className="ml-2 h-4 w-4" />
                             تحديد فرع
                         </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setIsBulkShiftDialogOpen(true)}>
+                        <DropdownMenuItem onSelect={() => {
+                          setTimeout(() => setIsBulkShiftDialogOpen(true), 100);
+                        }}>
                            <Clock className="ml-2 h-4 w-4" />
                             تحديد وردية خاصة
                         </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setIsBulkStatusDialogOpen(true)}>
+                        <DropdownMenuItem onSelect={() => {
+                          setTimeout(() => setIsBulkStatusDialogOpen(true), 100);
+                        }}>
                            <ShieldAlert className="ml-2 h-4 w-4" />
                            تغيير الحالة
                         </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setIsBulkPermissionsDialogOpen(true)}>
+                        <DropdownMenuItem onSelect={() => {
+                          setTimeout(() => setIsBulkPermissionsDialogOpen(true), 100);
+                        }}>
                            <ShieldAlert className="ml-2 h-4 w-4" />
                             تحديد الصلاحيات
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={() => setIsBulkDeleteDialogOpen(true)} className="text-destructive focus:text-destructive">
+                        <DropdownMenuItem onSelect={() => {
+                          setTimeout(() => setIsBulkDeleteDialogOpen(true), 100);
+                        }} className="text-destructive focus:text-destructive">
                            <Trash2 className="ml-2 h-4 w-4" />
                             حذف الموظفين
                         </DropdownMenuItem>
@@ -1599,7 +1632,7 @@ export default function EmployeesPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>هل أنت متأكد تمامًا؟</AlertDialogTitle>
                     <AlertDialogDescription>
-                        هذا الإجراء سيقوم بحذف {selectedEmployeeIds.length} موظف بشكل نهائي مع جميع بياناتهم المالية والإدارية. لا يمكن التراجع عن هذا الإجراء.
+                        هذا الإجراء سيقوم بحذف {selectedEmployeeIds.length} موظف بشكل نهائي مع جميع بياناتهم المرتبطة. لا يمكن التراجع عن هذا الإجراء.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
