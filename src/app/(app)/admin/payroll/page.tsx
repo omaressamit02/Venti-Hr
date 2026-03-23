@@ -35,7 +35,7 @@ import {
     DialogTrigger,
     DialogFooter,
 } from '@/components/ui/dialog';
-import { Calculator, CheckCircle, DollarSign, Send, FileSpreadsheet, Printer, Loader2, Info, Share2, IndianRupee } from 'lucide-react';
+import { Calculator, CheckCircle, DollarSign, Send, FileSpreadsheet, Printer, Loader2, Info, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
@@ -54,7 +54,8 @@ interface Employee {
   employeeName: string;
   employeeCode: string;
   salary: number;
-  dayOff?: string;
+  workDaysPerMonth?: number;
+  daysOff?: string[];
   shiftConfiguration?: "general" | "custom";
   checkInTime?: string;
   checkOutTime?: string;
@@ -306,7 +307,7 @@ export default function PayrollPage() {
 
     const newPayrollData: PayrollItem[] = allEmployees.map(employee => {
         
-        const dailyRate = employee.salary / 30;
+        const dailyRate = employee.salary / (employee.workDaysPerMonth || 30);
         const workHoursPerDay = settings.workStartTime && settings.workEndTime 
             ? differenceInHours(new Date(`1970-01-01T${settings.workEndTime}`), new Date(`1970-01-01T${settings.workStartTime}`))
             : 8;
@@ -347,8 +348,8 @@ export default function PayrollPage() {
 
 
         // 3. Absence Calculation
-        const dayOff = employee.dayOff ? parseInt(employee.dayOff, 10) : -1;
-        const workDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd }).filter(d => d.getDay() !== dayOff);
+        const daysOff = employee.daysOff || [];
+        const workDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd }).filter(d => !daysOff.includes(getDay(d).toString()));
         let absenceDays = 0;
         let incompleteRecords = 0;
 
@@ -746,7 +747,3 @@ export default function PayrollPage() {
     </div>
   );
 }
-
-
-
-    

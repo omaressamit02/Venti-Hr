@@ -27,6 +27,16 @@ import { cn } from '@/lib/utils';
 import { useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+const DAYS_OF_WEEK = [
+  { value: '0', label: 'الأحد' },
+  { value: '1', label: 'الاثنين' },
+  { value: '2', label: 'الثلاثاء' },
+  { value: '3', label: 'الأربعاء' },
+  { value: '4', label: 'الخميس' },
+  { value: '5', label: 'الجمعة' },
+  { value: '6', label: 'السبت' },
+];
+
 const employeeFormSchema = z.object({
   employeeName: z.string().min(1, 'اسم الموظف مطلوب'),
   employeeCode: z.string().min(1, 'كود الموظف مطلوب'),
@@ -34,13 +44,14 @@ const employeeFormSchema = z.object({
   gender: z.enum(['male', 'female'], { required_error: 'الجنس مطلوب' }),
   birthDate: z.string().optional(),
   salary: z.coerce.number().min(0, 'الراتب يجب أن يكون رقمًا موجبًا'),
+  workDaysPerMonth: z.coerce.number().min(1, 'يجب أن يكون يوم واحد على الأقل').default(30),
   password: z.string().optional(),
   shiftConfiguration: z.enum(['general', 'custom']),
   checkInTime: z.string().optional(),
   checkOutTime: z.string().optional(),
   permissions: z.array(z.string()).optional(),
   locationIds: z.array(z.string()).optional(),
-  dayOff: z.string().optional(),
+  daysOff: z.array(z.string()).optional(),
   managerId: z.string().optional(),
   isManager: z.boolean().default(false),
   disableDeductions: z.boolean().default(false),
@@ -89,6 +100,8 @@ export function EmployeeForm({ onSubmit, defaultValues = {}, currentEmployeeId }
       locationLoginRequired: false,
       isManager: false,
       allowLoginFromAnyDevice: false,
+      workDaysPerMonth: 30,
+      daysOff: [],
       permissions: navItems.filter(item => !item.adminOnly && !item.superAdminOnly).map(i => i.href),
       ...defaultValues,
     },
@@ -152,11 +165,19 @@ export function EmployeeForm({ onSubmit, defaultValues = {}, currentEmployeeId }
             {errors.salary && <p className="text-destructive text-xs">{errors.salary.message}</p>}
         </div>
       </div>
-      
-       <div className="space-y-2">
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+            <Label htmlFor="workDaysPerMonth">أيام العمل مقابل الراتب (شهرياً)</Label>
+            <Input id="workDaysPerMonth" type="number" {...register('workDaysPerMonth')} />
+            <p className='text-xs text-muted-foreground'>يستخدم لحساب الراتب اليومي وقيمة الخصم.</p>
+            {errors.workDaysPerMonth && <p className="text-destructive text-xs">{errors.workDaysPerMonth.message}</p>}
+        </div>
+        <div className="space-y-2">
             <Label htmlFor="password">كلمة المرور (اتركه فارغًا لعدم التغيير)</Label>
             <Input id="password" type="password" {...register('password')} />
         </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -185,24 +206,31 @@ export function EmployeeForm({ onSubmit, defaultValues = {}, currentEmployeeId }
         </div>
       </div>
 
-      <div className="space-y-2">
-          <Label htmlFor="dayOff">يوم الإجازة الأسبوعي</Label>
+      <div className="space-y-4 rounded-md border p-4">
+          <Label>أيام الإجازة الأسبوعية</Label>
           <Controller
-            name="dayOff"
+            name="daysOff"
             control={control}
             render={({ field }) => (
-                <Select dir="rtl" onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger id="dayOff"><SelectValue placeholder="اختر يوم..." /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="6">السبت</SelectItem>
-                        <SelectItem value="0">الأحد</SelectItem>
-                        <SelectItem value="1">الاثنين</SelectItem>
-                        <SelectItem value="2">الثلاثاء</SelectItem>
-                        <SelectItem value="3">الأربعاء</SelectItem>
-                        <SelectItem value="4">الخميس</SelectItem>
-                        <SelectItem value="5">الجمعة</SelectItem>
-                    </SelectContent>
-                </Select>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {DAYS_OF_WEEK.map((day) => (
+                        <div key={day.value} className="flex items-center space-x-2 space-x-reverse">
+                            <Checkbox
+                                id={`day-off-${day.value}`}
+                                checked={field.value?.includes(day.value)}
+                                onCheckedChange={(checked) => {
+                                    const newValue = checked
+                                        ? [...(field.value || []), day.value]
+                                        : (field.value || []).filter((v) => v !== day.value);
+                                    field.onChange(newValue);
+                                }}
+                            />
+                            <Label htmlFor={`day-off-${day.value}`} className="text-sm font-normal cursor-pointer">
+                                {day.label}
+                            </Label>
+                        </div>
+                    ))}
+                </div>
             )}
           />
       </div>

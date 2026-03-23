@@ -30,7 +30,7 @@ import { arEG } from "date-fns/locale";
 interface Employee {
   id: string;
   employeeName: string;
-  dayOff?: string;
+  daysOff?: string[];
   shiftConfiguration?: "general" | "custom";
   checkInTime?: string;
   checkOutTime?: string;
@@ -145,7 +145,7 @@ export default function MonthlyEmployeeReportPage() {
     
     const days = eachDayOfInterval({ start: startDate, end: endDate });
 
-    const employeeDayOff = employee.dayOff ? parseInt(employee.dayOff, 10) : -1;
+    const employeeDaysOff = employee.daysOff || [];
     const employeeAttendance = attendanceData ? Object.values(attendanceData).filter(a => a.employeeId === selectedEmployeeId) : [];
     const employeeRequests = requestsData ? Object.values(requestsData) : [];
 
@@ -155,7 +155,7 @@ export default function MonthlyEmployeeReportPage() {
     return days.map((day): DailyReport => {
 
       const dayStr = format(day, "yyyy-MM-dd");
-      const dayOfWeek = getDay(day);
+      const dayOfWeek = getDay(day).toString();
 
       const officialIn = (employee.shiftConfiguration === "custom" && employee.checkInTime) ? employee.checkInTime : globalIn;
       const officialOut = (employee.shiftConfiguration === "custom" && employee.checkOutTime) ? employee.checkOutTime : globalOut;
@@ -170,7 +170,7 @@ export default function MonthlyEmployeeReportPage() {
 
       const attendance = employeeAttendance.find(a => a.date === dayStr);
 
-      if (dayOfWeek === employeeDayOff) {
+      if (employeeDaysOff.includes(dayOfWeek)) {
           if (attendance) { // Worked on day off
              const processedAttendance = processAttendance(attendance);
              return { ...base, ...processedAttendance, status: "present", notes: "عمل في يوم الإجازة" };

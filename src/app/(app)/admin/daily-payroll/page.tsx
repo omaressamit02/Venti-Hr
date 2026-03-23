@@ -36,6 +36,7 @@ interface Employee {
   employeeName: string;
   employeeCode: string;
   salary: number;
+  workDaysPerMonth?: number;
   userStatus: 'Active' | 'Inactive' | 'Pending' | 'Archived';
   disableDeductions?: boolean;
 }
@@ -164,7 +165,7 @@ export default function DailyPayrollPage() {
         : Object.values(deductionRulesRaw);
         
     allEmployees.forEach(employee => {
-        const dailySalary = (employee.salary || 0) / 30;
+        const dailySalary = (employee.salary || 0) / (employee.workDaysPerMonth || 30);
         const hourlyRate = dailySalary / (workHoursPerDay || 8);
         const minuteRate = hourlyRate / 60;
         
@@ -301,9 +302,15 @@ export default function DailyPayrollPage() {
                         return (
                         <Card key={employee.id}>
                             <CardContent className="p-4 flex flex-col gap-4">
-                                <div>
-                                    <h3 className="font-bold">{employee.employeeName}</h3>
-                                    <p className="text-sm text-muted-foreground font-mono">{employee.employeeCode}</p>
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h3 className="font-bold">{employee.employeeName}</h3>
+                                        <p className="text-sm text-muted-foreground font-mono">{employee.employeeCode}</p>
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-xs text-muted-foreground">أيام العمل للراتب</p>
+                                        <Badge variant="outline">{employee.workDaysPerMonth || 30} يوم</Badge>
+                                    </div>
                                 </div>
                                 <Separator />
                                 <div className="space-y-3">

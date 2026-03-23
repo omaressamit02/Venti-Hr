@@ -88,6 +88,7 @@ interface Employee {
   gender: 'male' | 'female';
   birthDate?: string;
   salary: number;
+  workDaysPerMonth?: number;
   shiftConfiguration: 'general' | 'custom';
   checkInTime?: string;
   checkOutTime?: string;
@@ -96,7 +97,7 @@ interface Employee {
   password?: string;
   deviceId?: string;
   locationIds?: string[];
-  dayOff?: string;
+  daysOff?: string[];
   managerId?: string;
   isManager?: boolean;
   disableDeductions?: boolean;
@@ -285,10 +286,11 @@ export default function EmployeesPage() {
             phoneNumber: '01000000000',
             gender: 'male' as const,
             salary: 10000,
+            workDaysPerMonth: 30,
             shiftConfiguration: 'general' as const,
             permissions: navItems.map(item => item.href),
             userStatus: 'Active' as const,
-            dayOff: '5',
+            daysOff: ['5'],
             isManager: true,
         };
         await set(defaultEmployeeRef, defaultEmployee);
@@ -333,13 +335,14 @@ export default function EmployeesPage() {
         gender: formData.gender,
         birthDate: formData.birthDate,
         salary: formData.salary,
+        workDaysPerMonth: formData.workDaysPerMonth,
         password: formData.password,
         shiftConfiguration: formData.shiftConfiguration,
         checkInTime: formData.checkInTime,
         checkOutTime: formData.checkOutTime,
         permissions: formData.permissions || [],
         locationIds: formData.locationIds || [],
-        dayOff: formData.dayOff,
+        daysOff: formData.daysOff || [],
         managerId: formData.managerId,
         isManager: formData.isManager,
         userStatus: 'Active',
@@ -380,12 +383,13 @@ export default function EmployeesPage() {
         gender: formData.gender,
         birthDate: formData.birthDate,
         salary: formData.salary,
+        workDaysPerMonth: formData.workDaysPerMonth,
         shiftConfiguration: formData.shiftConfiguration,
         checkInTime: formData.checkInTime,
         checkOutTime: formData.checkOutTime,
         permissions: formData.permissions || [],
         locationIds: formData.locationIds || [],
-        dayOff: formData.dayOff,
+        daysOff: formData.daysOff || [],
         managerId: formData.managerId,
         isManager: formData.isManager,
         disableDeductions: formData.disableDeductions,
@@ -518,7 +522,7 @@ export default function EmployeesPage() {
             const chargeableDelayMinutes = Math.max(0, totalDelayMinutes - lateAllowance);
 
             if (chargeableDelayMinutes > 0 && deductionRules.length > 0) {
-                const dailyRate = (employee.salary || 0) / 30;
+                const dailyRate = (employee.salary || 0) / (employee.workDaysPerMonth || 30);
                  const workHoursPerDay = settings?.workStartTime && settings.workEndTime 
                     ? (new Date(`1970-01-01T${settings.workEndTime}`).getTime() - new Date(`1970-01-01T${settings.workStartTime}`).getTime()) / (1000 * 60 * 60)
                     : 8;
@@ -564,7 +568,7 @@ export default function EmployeesPage() {
             toast({variant: "destructive", title: "الرجاء إدخال عدد أيام صحيح وموجب"});
             return;
         }
-        finalAmount = (selectedEmployee.salary / 30) * days;
+        finalAmount = (selectedEmployee.salary / (selectedEmployee.workDaysPerMonth || 30)) * days;
     } else { // loan or salary_advance
         const amount = parseFloat(actionAmount);
         if (isNaN(amount) || amount <= 0) {
@@ -603,9 +607,9 @@ export default function EmployeesPage() {
   }
   
   const handleDownloadTemplate = () => {
-    const headers = ["employeeName", "employeeCode", "password", "salary", "gender", "birthDate", "locationIds", "dayOff", "managerCode"];
+    const headers = ["employeeName", "employeeCode", "password", "salary", "workDaysPerMonth", "gender", "birthDate", "locationIds", "daysOff", "managerCode"];
     const sampleData = [
-        ["احمد محمد", "EMP001", "123456", 5000, "male", "1990-01-15", "branch-1,branch-2", "5", "ADMIN"],
+        ["احمد محمد", "EMP001", "123456", 5000, 26, "male", "1990-01-15", "branch-1,branch-2", "5,6", "ADMIN"],
     ];
     
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleData]);
@@ -640,7 +644,7 @@ export default function EmployeesPage() {
                 return obj;
             }, {} as any);
             
-            const { employeeName, employeeCode, password, salary, gender, birthDate, locationIds, dayOff, managerCode } = employeeData;
+            const { employeeName, employeeCode, password, salary, workDaysPerMonth, gender, birthDate, locationIds, daysOff, managerCode } = employeeData;
             
             if (!employeeName || !employeeCode || !password || !salary || !gender) {
                 results.push({ employeeName, employeeCode, status: 'error', message: 'بيانات ناقصة' });
@@ -663,10 +667,11 @@ export default function EmployeesPage() {
                 employeeCode,
                 password: String(password),
                 salary: Number(salary),
+                workDaysPerMonth: workDaysPerMonth ? Number(workDaysPerMonth) : 30,
                 gender,
                 birthDate: birthDate ? new Date(birthDate).toISOString().split('T')[0] : null,
                 locationIds: locationIds ? String(locationIds).split(',').map(s => s.trim()) : [],
-                dayOff: dayOff ? String(dayOff) : '5',
+                daysOff: daysOff ? String(daysOff).split(',').map(s => s.trim()) : ['5'],
                 managerId: managerId,
                 userStatus: 'Active',
                 permissions: navItems.filter(item => !item.adminOnly).map(item => item.href),
@@ -875,7 +880,7 @@ export default function EmployeesPage() {
         if (!selectedEmployee || !actionDays) return 0;
         const days = parseFloat(actionDays);
         if (isNaN(days)) return 0;
-        return (selectedEmployee.salary / 30) * days;
+        return (selectedEmployee.salary / (selectedEmployee.workDaysPerMonth || 30)) * days;
     }, [selectedEmployee, actionDays]);
 
 
@@ -1129,6 +1134,7 @@ export default function EmployeesPage() {
                         {isClient
                           ? Number(employee.salary || 0).toLocaleString('ar') + ' ج.م'
                           : employee.salary}
+                        <div className='text-xs text-muted-foreground'>({employee.workDaysPerMonth || 30} يوم)</div>
                       </TableCell>
                       <TableCell className="text-right">
                           <div className="text-xs text-muted-foreground font-mono flex items-center gap-2">
@@ -1334,6 +1340,7 @@ export default function EmployeesPage() {
                                 <span className="font-mono">
                                     {isClient ? Number(employee.salary || 0).toLocaleString('ar') + ' ج.م' : employee.salary}
                                 </span>
+                                <span className='text-xs text-muted-foreground mr-1'>({employee.workDaysPerMonth || 30} يوم)</span>
                             </div>
                             <div className="text-sm">
                                 <span className="text-muted-foreground">المدير: </span>

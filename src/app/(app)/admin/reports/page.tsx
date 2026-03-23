@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -45,8 +44,9 @@ interface Employee {
   gender: 'male' | 'female';
   locationIds?: string[];
   userStatus: 'Active' | 'Inactive' | 'Pending' | 'Archived';
-  dayOff?: string;
+  daysOff?: string[];
   salary: number;
+  workDaysPerMonth?: number;
 }
 
 interface Location {
@@ -93,9 +93,9 @@ const STATUS_CONFIG: { [key in DailyStatus]: { text: string; badgeVariant: 'seco
   weekly_off: { text: 'إجازة أسبوعية', badgeVariant: 'default', icon: <Moon className="h-4 w-4 text-gray-500" /> },
 };
 
-const getWorkDaysInRange = (startDate: Date, endDate: Date, dayOff: number): Date[] => {
+const getWorkDaysInRange = (startDate: Date, endDate: Date, daysOff: string[]): Date[] => {
     const days = eachDayOfInterval({ start: startDate, end: endDate });
-    return days.filter(day => day.getDay() !== dayOff);
+    return days.filter(day => !daysOff.includes(day.getDay().toString()));
 };
 
 
@@ -139,7 +139,7 @@ export default function ReportsPage() {
     if (!allEmployees.length) return [];
 
     const reportDateStr = format(reportDate, 'yyyy-MM-dd');
-    const reportDayOfWeek = reportDate.getDay();
+    const reportDayOfWeek = reportDate.getDay().toString();
 
     const report: {
         id: string;
@@ -153,8 +153,8 @@ export default function ReportsPage() {
     
     allEmployees.forEach(employee => {
         // 1. Check for weekly day off
-        const employeeDayOff = employee.dayOff ? parseInt(employee.dayOff, 10) : -1; // -1 if not set
-        if(reportDayOfWeek === employeeDayOff) {
+        const employeeDaysOff = employee.daysOff || [];
+        if(employeeDaysOff.includes(reportDayOfWeek)) {
             report.push({
                 id: employee.id,
                 employeeName: employee.employeeName,
@@ -297,8 +297,8 @@ export default function ReportsPage() {
       const calculationEndDate = today < endOfMonth(monthDate) ? today : endOfMonth(monthDate);
 
       allEmployees.forEach(emp => {
-          const dayOff = emp.dayOff ? parseInt(emp.dayOff, 10) : 5; 
-          const workDaysSoFar = getWorkDaysInRange(startOfMonth(monthDate), calculationEndDate, dayOff).length;
+          const daysOff = emp.daysOff || ['5']; 
+          const workDaysSoFar = getWorkDaysInRange(startOfMonth(monthDate), calculationEndDate, daysOff).length;
           const startingPoints = workDaysSoFar * POINTS_PER_DAY;
           employeeStats[emp.id] = { totalDelay: 0, absenceDays: 0, bonuses: 0, penalties: 0, startingPoints };
       });
@@ -320,8 +320,8 @@ export default function ReportsPage() {
       
       
       allEmployees.forEach(emp => {
-        const dayOff = emp.dayOff ? parseInt(emp.dayOff, 10) : 5; 
-        const workDays = getWorkDaysInRange(startOfMonth(monthDate), calculationEndDate, dayOff);
+        const daysOff = emp.daysOff || ['5']; 
+        const workDays = getWorkDaysInRange(startOfMonth(monthDate), calculationEndDate, daysOff);
         
         const employeeRequests = requestsData && requestsData[emp.id] ? Object.values(requestsData[emp.id]) : [];
         const approvedLeaveDays = new Set<string>();
@@ -373,7 +373,7 @@ export default function ReportsPage() {
               const employee = employeesData[employeeId];
               if (!employee) return null;
 
-              const dailyRate = (employee.salary || 0) / 30;
+              const dailyRate = (employee.salary || 0) / (employee.workDaysPerMonth || 30);
 
               const bonusDays = dailyRate > 0 ? stats.bonuses / dailyRate : 0;
               const penaltyDays = dailyRate > 0 ? stats.penalties / dailyRate : 0;
