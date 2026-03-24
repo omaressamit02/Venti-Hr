@@ -33,7 +33,7 @@ interface LocationData {
     lon: string;
 }
 
-const QR_REFRESH_INTERVAL_SECONDS = 10;
+const QR_REFRESH_INTERVAL_SECONDS = 15; // Increased slightly for better scan stability
 
 export const useQrCodeManager = (locationData: LocationData | null) => {
   const db = useDb();
@@ -75,15 +75,12 @@ export const useQrCodeManager = (locationData: LocationData | null) => {
       const qrCodeRef = ref(db, `qr_codes/${locationData.id}`);
       await set(qrCodeRef, { ...newQrCodeForDb, createdAt: dbServerTimestamp() });
       
+      // Simpler structure for faster scanning
       const newQrCodeForImage = JSON.stringify({
         id: qrId,
         locId: locationData.id,
         expiry: expiryTimestamp,
-        signature: signature,
-        location: {
-            latitude: parseFloat(locationData.lat),
-            longitude: parseFloat(locationData.lon),
-        }
+        signature: signature
       });
       
       setActiveQrCodeString(newQrCodeForImage);

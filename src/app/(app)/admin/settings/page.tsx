@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -51,8 +50,9 @@ type GlobalSettings = {
     lateAllowance: number;
     lateAllowanceScope?: 'daily' | 'monthly';
     overtimeEnabled: boolean;
-    qrRefreshInterval: number;
     qrCodeRequired: boolean;
+    qrLocationCheckRequired: boolean;
+    qrRefreshInterval: number;
     locationRestriction: string;
     locationRadius: number;
     locations: Location[];
@@ -70,8 +70,9 @@ const defaultSettings: GlobalSettings = {
   lateAllowance: 15,
   lateAllowanceScope: 'daily',
   overtimeEnabled: false,
-  qrRefreshInterval: 30,
   qrCodeRequired: true,
+  qrLocationCheckRequired: true,
+  qrRefreshInterval: 30,
   locationRestriction: 'required',
   locationRadius: 100,
   locations: [
@@ -134,7 +135,6 @@ export default function SettingsPage() {
     };
 
     const handleLocationChange = (id: string, field: 'name' | 'lat' | 'lon', value: string) => {
-        // Check if the user is pasting a combined lat,lon string
         if ((field === 'lat' || field === 'lon') && value.includes(',')) {
             const parts = value.split(',').map(part => part.trim());
             if (parts.length === 2 && !isNaN(parseFloat(parts[0])) && !isNaN(parseFloat(parts[1]))) {
@@ -143,11 +143,10 @@ export default function SettingsPage() {
                     loc.id === id ? { ...loc, lat, lon } : loc
                 );
                 handleSettingChange('locations', updatedLocations);
-                return; // Stop further processing
+                return;
             }
         }
 
-        // Default behavior for single field update
         const updatedLocations = (settings.locations || []).map(loc => 
             loc.id === id ? { ...loc, [field]: value } : loc
         );
@@ -214,14 +213,11 @@ export default function SettingsPage() {
         }
 
         try {
-            // Find the index of the location in the original data from DB
             const locationIndex = initialData?.locations?.findIndex(loc => loc && loc.id === locationId) ?? -1;
 
             if (locationIndex === -1) {
-                 // This is a new location, so we save the whole settings object
                  await set(settingsRef, settings);
             } else {
-                // This is an existing location, update it specifically
                 const locationPath = `global_settings/main/locations/${locationIndex}`;
                 await update(ref(db), { [locationPath]: locationToSave });
             }
@@ -324,16 +320,32 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-           <div className="flex items-center space-x-2 space-x-reverse">
-            <Switch 
-                id="qr-code-required" 
-                checked={settings.qrCodeRequired ?? true}
-                onCheckedChange={(checked) => handleSettingChange('qrCodeRequired', checked)}
-            />
-            <Label htmlFor="qr-code-required">
-              إلزام استخدام QR Code للتسجيل
-            </Label>
-          </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-0.5">
+                  <Label htmlFor="qr-code-required">إلزام استخدام QR Code</Label>
+                  <p className="text-xs text-muted-foreground">يجب مسح الكود لتسجيل الحضور</p>
+                </div>
+                <Switch 
+                    id="qr-code-required" 
+                    checked={settings.qrCodeRequired ?? true}
+                    onCheckedChange={(checked) => handleSettingChange('qrCodeRequired', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-0.5">
+                  <Label htmlFor="qr-location-check">إلزام فحص الموقع عند مسح QR</Label>
+                  <p className="text-xs text-muted-foreground">التأكد من تواجد الموظف بالفرع أثناء المسح</p>
+                </div>
+                <Switch 
+                    id="qr-location-check" 
+                    checked={settings.qrLocationCheckRequired ?? true}
+                    onCheckedChange={(checked) => handleSettingChange('qrLocationCheckRequired', checked)}
+                />
+              </div>
+           </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
              <div className="space-y-2">
               <Label htmlFor="qr-refresh-interval">
@@ -349,7 +361,7 @@ export default function SettingsPage() {
               />
             </div>
             <div className="space-y-2">
-                <Label htmlFor="location-restriction">تقييد الموقع الجغرافي</Label>
+                <Label htmlFor="location-restriction">تقييد الموقع الجغرافي العام</Label>
                  <Select 
                     dir="rtl" 
                     value={settings.locationRestriction || 'required'}
