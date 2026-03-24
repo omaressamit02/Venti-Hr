@@ -45,6 +45,8 @@ import * as XLSX from 'xlsx';
 import { format, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, differenceInHours } from 'date-fns';
 import { useReactToPrint } from 'react-to-print';
 import { arEG } from 'date-fns/locale';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 
 // ---------------- Interfaces ----------------
@@ -254,6 +256,7 @@ export default function PayrollPage() {
   
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [sharingItem, setSharingItem] = useState<PayrollItem | null>(null);
+  const [ignoreDelayDeductions, setIgnoreDelayDeductions] = useState(false);
 
   // --- Data Fetching ---
   const employeesRef = useMemoFirebase(() => db ? ref(db, 'employees') : null, [db]);
@@ -360,20 +363,23 @@ export default function PayrollPage() {
 
         // 4. Delay Deductions
         let delayDeductions = 0;
-        const lateAllowance = settings.lateAllowanceScope === 'monthly' ? (settings.lateAllowance || 0) : 0;
-        const netDelayMinutes = Math.max(0, totalDelayMinutes - approvedLateArrivalPermissionMinutes);
-        const chargeableDelayMinutes = Math.max(0, netDelayMinutes - lateAllowance);
+        let chargeableDelayMinutes = 0;
+        if (!ignoreDelayDeductions) {
+            const lateAllowance = settings.lateAllowanceScope === 'monthly' ? (settings.lateAllowance || 0) : 0;
+            const netDelayMinutes = Math.max(0, totalDelayMinutes - approvedLateArrivalPermissionMinutes);
+            chargeableDelayMinutes = Math.max(0, netDelayMinutes - lateAllowance);
 
-        const deductionRulesRaw = settings.deductionRules || [];
-        const deductionRules: DeductionRule[] = Array.isArray(deductionRulesRaw) ? deductionRulesRaw : Object.values(deductionRulesRaw);
+            const deductionRulesRaw = settings.deductionRules || [];
+            const deductionRules: DeductionRule[] = Array.isArray(deductionRulesRaw) ? deductionRulesRaw : Object.values(deductionRulesRaw);
 
-        if (chargeableDelayMinutes > 0 && deductionRules.length > 0) {
-            const applicableRule = deductionRules.sort((a,b) => a.fromMinutes - b.fromMinutes).find(rule => chargeableDelayMinutes >= rule.fromMinutes && chargeableDelayMinutes <= rule.toMinutes);
-            if (applicableRule) {
-                if (applicableRule.deductionType === 'fixed_amount') delayDeductions = applicableRule.deductionValue;
-                else if (applicableRule.deductionType === 'day_deduction') delayDeductions = dailyRate * applicableRule.deductionValue;
-                else if (applicableRule.deductionType === 'hour_deduction') delayDeductions = hourlyRate * applicableRule.deductionValue;
-                else if (applicableRule.deductionType === 'minute_deduction') delayDeductions = minuteRate * applicableRule.deductionValue;
+            if (chargeableDelayMinutes > 0 && deductionRules.length > 0) {
+                const applicableRule = deductionRules.sort((a,b) => a.fromMinutes - b.fromMinutes).find(rule => chargeableDelayMinutes >= rule.fromMinutes && chargeableDelayMinutes <= rule.toMinutes);
+                if (applicableRule) {
+                    if (applicableRule.deductionType === 'fixed_amount') delayDeductions = applicableRule.deductionValue;
+                    else if (applicableRule.deductionType === 'day_deduction') delayDeductions = dailyRate * applicableRule.deductionValue;
+                    else if (applicableRule.deductionType === 'hour_deduction') delayDeductions = hourlyRate * applicableRule.deductionValue;
+                    else if (applicableRule.deductionType === 'minute_deduction') delayDeductions = minuteRate * applicableRule.deductionValue;
+                }
             }
         }
         
@@ -519,6 +525,14 @@ export default function PayrollPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center space-x-2 space-x-reverse mb-2">
+                <Checkbox 
+                    id="ignore-delay" 
+                    checked={ignoreDelayDeductions} 
+                    onCheckedChange={(v) => setIgnoreDelayDeductions(v as boolean)} 
+                />
+                <Label htmlFor="ignore-delay" className="text-sm font-medium cursor-pointer">تجاهل خصومات التأخير</Label>
             </div>
             <Button onClick={handleCalculatePayroll} disabled={isLoading || isCalculating} className="flex-grow md:flex-grow-0">
               {isCalculating ? <Loader2 className="ml-2 h-4 w-4 animate-spin"/> : <Calculator className="ml-2 h-4 w-4" />}
