@@ -24,7 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { ChevronsUpDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const DAYS_OF_WEEK = [
@@ -87,6 +87,7 @@ type Employee = {
 const permissionNavItems = navItems.filter(item => !item.superAdminOnly);
 
 export function EmployeeForm({ onSubmit, defaultValues = {}, currentEmployeeId }: EmployeeFormProps) {
+  const [openManagerPopover, setOpenManagerPopover] = useState(false);
   const {
     register,
     handleSubmit,
@@ -121,13 +122,6 @@ export function EmployeeForm({ onSubmit, defaultValues = {}, currentEmployeeId }
     return locationsRaw.filter((loc: any): loc is Location => !!(loc?.id && loc?.name));
   }, [settings]);
   
-  const employeesList = useMemo(() => {
-      if (!employeesData) return [];
-      return Object.entries(employeesData)
-        .map(([id, emp]) => ({ value: id, label: emp.employeeName }))
-        .filter(emp => emp.value !== currentEmployeeId);
-  }, [employeesData, currentEmployeeId]);
-
   const managersList = useMemo(() => {
     if (!employeesData) return [];
     return Object.entries(employeesData)
@@ -241,33 +235,39 @@ export function EmployeeForm({ onSubmit, defaultValues = {}, currentEmployeeId }
                 name="managerId"
                 control={control}
                 render={({ field }) => (
-                     <Popover>
+                     <Popover open={openManagerPopover} onOpenChange={setOpenManagerPopover}>
                         <PopoverTrigger asChild>
                         <Button
                             variant="outline"
                             role="combobox"
+                            aria-expanded={openManagerPopover}
                             className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
                         >
-                            {field.value ? managersList.find(emp => emp.value === field.value)?.label : "اختر المدير"}
+                            {field.value ? (managersList.find(emp => emp.value === field.value)?.label || field.value) : "اختر المدير"}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                         <Command>
                             <CommandInput placeholder="ابحث عن مدير..." />
-                            <CommandEmpty>لا يوجد مدير بهذا الاسم.</CommandEmpty>
-                            <CommandGroup>
-                            {managersList.map((employee) => (
-                                <CommandItem
-                                value={employee.label}
-                                key={employee.value}
-                                onSelect={() => field.onChange(employee.value)}
-                                >
-                                <Check className={cn("mr-2 h-4 w-4", employee.value === field.value ? "opacity-100" : "opacity-0")} />
-                                {employee.label}
-                                </CommandItem>
-                            ))}
-                            </CommandGroup>
+                            <CommandList>
+                                <CommandEmpty>لا يوجد مدير بهذا الاسم.</CommandEmpty>
+                                <CommandGroup>
+                                {managersList.map((employee) => (
+                                    <CommandItem
+                                    value={employee.label}
+                                    key={employee.value}
+                                    onSelect={() => {
+                                        field.onChange(employee.value);
+                                        setOpenManagerPopover(false);
+                                    }}
+                                    >
+                                    <Check className={cn("mr-2 h-4 w-4", employee.value === field.value ? "opacity-100" : "opacity-0")} />
+                                    {employee.label}
+                                    </CommandItem>
+                                ))}
+                                </CommandGroup>
+                            </CommandList>
                         </Command>
                         </PopoverContent>
                     </Popover>
