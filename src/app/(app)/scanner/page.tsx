@@ -16,6 +16,7 @@ import { format, subDays } from 'date-fns';
 import { arEG } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import { SERVER_SECRET } from '@/hooks/use-qr-code-manager';
+import { Badge } from '@/components/ui/badge';
 
 
 interface EmployeeProfile {
@@ -30,6 +31,7 @@ interface EmployeeProfile {
 
 interface AttendanceRecord {
     id: string;
+    employeeId: string;
     checkIn: string;
     checkOut?: string;
     date: string;

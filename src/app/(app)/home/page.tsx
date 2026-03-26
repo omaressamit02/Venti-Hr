@@ -15,6 +15,7 @@ interface UserProfile {
 }
 
 interface AttendanceRecord {
+  employeeId: string;
   checkIn: string;
   checkOut?: string;
   delayMinutes?: number;

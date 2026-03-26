@@ -101,7 +101,7 @@ export default function EmployeeRequestsPage() {
   const [durationHours, setDurationHours] = useState<number | undefined>(undefined);
   const [notes, setNotes] = useState('');
   const [selectedManager, setSelectedManager] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const storedProfile = localStorage.getItem('userProfile');
@@ -173,7 +173,7 @@ export default function EmployeeRequestsPage() {
         return;
     }
     
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
         const newRequestRef = push(ref(db, `employee_requests/${currentUserProfile.id}`));
@@ -205,7 +205,7 @@ export default function EmployeeRequestsPage() {
     } catch (error) {
         toast({ variant: 'destructive', title: 'فشل إرسال الطلب' });
     } finally {
-        setIsLoading(false);
+        setIsSubmitting(false);
     }
   }
   
@@ -215,6 +215,7 @@ export default function EmployeeRequestsPage() {
     }
   }, [startDate, requestType]);
 
+  const isLoading = isRequestsLoading || isEmployeesLoading || !currentUserProfile;
 
   return (
     <div className="space-y-6">
@@ -292,8 +293,8 @@ export default function EmployeeRequestsPage() {
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>إلغاء</Button>
-                        <Button type="submit" disabled={isLoading}>
-                            {isLoading ? 'جاري الإرسال...' : 'إرسال الطلب'}
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? 'جاري الإرسال...' : 'إرسال الطلب'}
                         </Button>
                     </DialogFooter>
                  </form>
