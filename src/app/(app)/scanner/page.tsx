@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { LogIn, LogOut, Loader2, Navigation, CheckCircle, MapPin, RefreshCw, AlertTriangle, Clock, CalendarIcon, Camera } from 'lucide-react';
+import { LogIn, LogOut, Loader2, CheckCircle, MapPin, RefreshCw, AlertTriangle, Clock, Camera, Target, History } from 'lucide-react';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
 import { ref, set, update, query, orderByChild, equalTo, get, serverTimestamp as dbServerTimestamp, push, limitToLast } from 'firebase/database';
 import { md5 } from 'js-md5';
@@ -14,13 +14,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import QrScanner from 'react-qr-scanner';
 import { format, subDays } from 'date-fns';
 import { arEG } from 'date-fns/locale';
-import { Separator } from '@/components/ui/separator';
 import { SERVER_SECRET } from '@/hooks/use-qr-code-manager';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 
 interface EmployeeProfile {
   id: string;
+  employeeName: string;
   employeeCode: string;
   deviceId?: string;
   locationIds?: string[];
@@ -90,33 +91,24 @@ type UserStatus = 'checked_in' | 'checked_out' | 'loading' | 'error';
 
 const CameraScanner = ({ onScan, onError }: { onScan: (data: any) => void, onError: (error: any) => void }) => {
     return (
-        <div className="w-full aspect-square bg-black rounded-3xl flex items-center justify-center overflow-hidden relative border-8 border-primary/10 shadow-inner">
+        <div className="w-full aspect-square bg-black rounded-lg flex items-center justify-center overflow-hidden relative border-4 border-muted">
             <QrScanner
                 delay={100}
                 onError={onError}
                 onScan={onScan}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                constraints={{ video: { facingMode: "environment", focusMode: "continuous" } }}
+                constraints={{ video: { facingMode: "environment" } }}
             />
-            {/* Visual Guide Overlay */}
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none">
-                <div className="w-72 h-72 border-2 border-white/30 rounded-3xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]">
-                    {/* Corners */}
-                    <div className="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-primary rounded-tl-2xl"></div>
-                    <div className="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-primary rounded-tr-2xl"></div>
-                    <div className="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-primary rounded-bl-2xl"></div>
-                    <div className="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-primary rounded-br-2xl"></div>
-                    
-                    {/* Pulsing Scanning Line */}
-                    <div className="absolute top-0 left-0 w-full h-1.5 bg-primary/80 animate-scan shadow-[0_0_15px_rgba(var(--primary),0.8)]"></div>
-                </div>
-                <div className="mt-10 flex flex-col items-center gap-2">
-                    <p className="text-white font-bold text-lg bg-primary/20 backdrop-blur-md px-6 py-2 rounded-full border border-white/10">وجه الكاميرا نحو الكود</p>
-                    <div className="animate-bounce">
-                        <Camera className="text-primary h-6 w-6" />
-                    </div>
+            <div className="absolute inset-0 pointer-events-none border-[40px] border-black/40">
+                <div className="w-full h-full border-2 border-primary/50 relative">
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary"></div>
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary"></div>
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary"></div>
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary"></div>
+                    <div className="absolute top-0 left-0 w-full h-0.5 bg-primary/50 animate-scan"></div>
                 </div>
             </div>
+            <p className="absolute bottom-4 left-0 right-0 text-center text-white text-xs bg-black/60 py-1">وجه الكاميرا نحو الرمز الموجود على شاشة الفرع</p>
         </div>
     );
 };
@@ -181,7 +173,7 @@ export default function ScannerPage() {
                 setIsRequestingLocation(false);
             },
             () => {
-                setLocationError('لا يمكن الوصول للموقع. يرجى تفعيل الإذن والمحاولة مرة أخرى.');
+                setLocationError('لا يمكن الوصول للموقع. يرجى تفعيل GPS والمحاولة مرة أخرى.');
                 setIsRequestingLocation(false);
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -269,7 +261,7 @@ export default function ScannerPage() {
             employeeId_date: `${freshUserProfile.id}_${workDayString}`,
             status: 'present'
         });
-        toast({ title: "تم تسجيل الحضور بنجاح", className: "bg-green-100 border-green-500" });
+        toast({ title: "تم تسجيل الحضور بنجاح", variant: "default" });
     } else {
         const openRecordInfo = await findOpenAttendanceRecord();
         if (!openRecordInfo) throw new Error("لا يوجد سجل حضور مفتوح.");
@@ -278,14 +270,12 @@ export default function ScannerPage() {
             ...(currentGpsLocation && { checkOutLocation: currentGpsLocation }), 
             ...(distance !== null && { checkOutDistance: distance })
         });
-        toast({ title: "تم تسجيل الانصراف بنجاح", className: "bg-blue-100 border-blue-500" });
+        toast({ title: "تم تسجيل الانصراف بنجاح", variant: "default" });
     }
   }, [db, settings, toast, findOpenAttendanceRecord]);
 
   const handleScan = useCallback(async (data: { text: string } | null) => {
     if (isProcessing) return;
-    
-    // If QR is required, we MUST have scan data
     if (qrCodeRequired && !data) return;
 
     setIsProcessing(true);
@@ -297,62 +287,63 @@ export default function ScannerPage() {
         
         // 1. Process QR Data if required
         if (qrCodeRequired && data) {
-            const qrData = JSON.parse(data.text);
-            const { locId, expiry, signature } = qrData;
+            // Simplified string format: "id|locId|exp|sig"
+            const [id, locId, expiry, signature] = data.text.split('|');
             
-            if (Date.now() > (expiry + 5000)) throw new Error("انتهت صلاحية الرمز. يرجى التحديث.");
-            if (signature !== md5(`${qrData.id}|${expiry}|${locId}|${SERVER_SECRET}`)) throw new Error("رمز غير صالح.");
+            if (!id || !locId || !expiry || !signature) throw new Error("تنسيق رمز QR غير صالح.");
+            
+            if (Date.now() > (Number(expiry) + 10000)) throw new Error("انتهت صلاحية الرمز. يرجى التحديث.");
+            
+            const expectedSig = md5(`${id}|${expiry}|${locId}|${SERVER_SECRET}`);
+            if (signature !== expectedSig) throw new Error("رمز غير صالح أو تم التلاعب به.");
 
             const targetLocation = allLocations.find(l => l.id === locId);
-            if (!targetLocation) throw new Error("فرع غير معروف.");
+            if (!targetLocation) throw new Error("هذا الرمز تابع لفرع غير مسجل لك.");
             
             validatedLocationId = targetLocation.id;
             validatedLocationName = targetLocation.name;
         }
 
-        // 2. Location Check (Optional based on settings)
+        // 2. Location Check
         let currentDistance = null;
         if (qrLocationCheckRequired || !qrCodeRequired) {
-            if (!location) throw new Error("يرجى تفعيل GPS أولاً.");
+            if (!location) throw new Error("يرجى تفعيل GPS أولاً للسماح بالتحقق من تواجدك.");
             
             if (qrCodeRequired) {
-                // If QR scanned, check distance to THAT branch
                 const targetLocation = allLocations.find(l => l.id === validatedLocationId);
                 if (targetLocation) {
                     currentDistance = getDistance(location.lat, location.lon, parseFloat(targetLocation.lat), parseFloat(targetLocation.lon));
                     if (currentDistance > (settings?.locationRadius || 100)) {
-                        throw new Error(`أنت بعيد عن ${targetLocation.name} بمسافة ${Math.round(currentDistance)} متر.`);
+                        throw new Error(`أنت بعيد عن موقع ${targetLocation.name} بمسافة ${Math.round(currentDistance)} متر.`);
                     }
                 }
             } else {
-                // If button punch, check closest branch
                 if (!targetLocationData || !targetLocationData.isInside) {
-                    throw new Error(targetLocationData ? `أنت بعيد عن ${targetLocationData.name} بمسافة ${Math.round(targetLocationData.distance)}م` : "لست داخل نطاق أي فرع.");
+                    throw new Error(targetLocationData ? `أنت بعيد عن ${targetLocationData.name} بمسافة ${Math.round(targetLocationData.distance)}م` : "لست داخل نطاق أي فرع مسموح لك به.");
                 }
                 validatedLocationId = targetLocationData.id;
                 validatedLocationName = targetLocationData.name;
                 currentDistance = targetLocationData.distance;
             }
-        } else if (qrCodeRequired && !qrLocationCheckRequired) {
-            // QR is enough, no GPS check needed
         }
 
         await processAttendance(userStatus === 'checked_in' ? 'check_out' : 'check_in', validatedLocationId, validatedLocationName, freshUserProfile, location, currentDistance);
         setShowScanner(false);
     } catch (error: any) {
         console.error("Scan Error:", error);
-        toast({ variant: "destructive", title: "خطأ", description: error.message || "حدث خطأ أثناء المعالجة." });
+        toast({ variant: "destructive", title: "فشل العملية", description: error.message || "حدث خطأ غير متوقع." });
     } finally {
-        setTimeout(() => setIsProcessing(false), 1500);
+        setTimeout(() => setIsProcessing(false), 1000);
     }
   }, [isProcessing, qrCodeRequired, qrLocationCheckRequired, location, allLocations, targetLocationData, settings, toast, validateUserAndDevice, processAttendance, userStatus]);
 
   const renderContent = () => {
     if (!userProfile || isSettingsLoading || userStatus === 'loading') {
       return (
-        <div className="text-center text-muted-foreground p-8">
-            <Loader2 className="h-8 w-8 mx-auto animate-spin mb-4 text-primary"/>
-            <p>جاري تحميل البيانات...</p>
+        <div className="space-y-4">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-20 w-full" />
         </div>
       );
     }
@@ -360,11 +351,8 @@ export default function ScannerPage() {
     if (isProcessing) {
         return (
             <div className="flex flex-col items-center justify-center space-y-4 p-8">
-                <div className="relative">
-                    <Loader2 className="w-20 h-20 text-primary animate-spin" />
-                    <RefreshCw className="absolute inset-0 m-auto w-8 h-8 text-primary/50" />
-                </div>
-                <p className="text-xl font-bold animate-pulse">جاري التحقق من البيانات...</p>
+                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                <p className="text-lg font-bold animate-pulse">جاري التحقق من البيانات...</p>
             </div>
         );
     }
@@ -372,8 +360,8 @@ export default function ScannerPage() {
     if (showScanner) {
       return (
         <div className="space-y-6">
-          <CameraScanner onScan={handleScan} onError={(err: any) => toast({ variant: 'destructive', title: 'خطأ في الكاميرا', description: 'يرجى التأكد من إعطاء صلاحية الكاميرا للمتصفح.' })} />
-          <Button variant="ghost" className="w-full text-destructive hover:bg-destructive/10" onClick={() => setShowScanner(false)}>إلغاء العملية</Button>
+          <CameraScanner onScan={handleScan} onError={(err: any) => toast({ variant: 'destructive', title: 'خطأ في الكاميرا', description: 'يرجى إعطاء صلاحية الكاميرا للمتصفح.' })} />
+          <Button variant="outline" className="w-full" onClick={() => setShowScanner(false)}>إلغاء و العودة</Button>
         </div>
       );
     }
@@ -384,26 +372,46 @@ export default function ScannerPage() {
     return (
       <div className="space-y-6">
         {settings?.employeeAlert && (
-            <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-700 rounded-2xl">
-                <AlertTriangle className="h-5 w-5" />
-                <AlertDescription className="font-bold text-sm leading-relaxed">{settings.employeeAlert}</AlertDescription>
+            <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20">
+                <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                <AlertDescription className="text-yellow-700 dark:text-yellow-400 font-bold">{settings.employeeAlert}</AlertDescription>
             </Alert>
         )}
-        
-        {/* Status Badge */}
-        <div className={`flex items-center justify-center gap-3 py-4 px-6 rounded-2xl border-2 transition-colors ${isWithinRange ? 'bg-green-50 text-green-700 border-green-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
-            <div className={`p-2 rounded-full ${isWithinRange ? 'bg-green-200' : 'bg-orange-200'}`}>
-                <MapPin className="h-5 w-5" />
-            </div>
-            <span className="font-bold text-sm">
-                {locationStatusMessage()}
-            </span>
-        </div>
+
+        <Card className="border-2">
+            <CardContent className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <MapPin className={cn("h-5 w-5", isWithinRange ? "text-green-500" : "text-destructive")} />
+                        <span className="font-semibold">الموقع الجغرافي:</span>
+                    </div>
+                    {isRequestingLocation ? (
+                        <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                            <RefreshCw className="h-3 w-3 animate-spin" /> جاري التحديد...
+                        </div>
+                    ) : (
+                        <Badge variant={isWithinRange ? "secondary" : "destructive"}>
+                            {isWithinRange ? "داخل النطاق" : "خارج النطاق"}
+                        </Badge>
+                    )}
+                </div>
+                
+                <div className="text-sm space-y-1">
+                    <p className="text-muted-foreground">{locationStatusMessage()}</p>
+                    {userProfile.shiftConfiguration === 'custom' && (
+                        <div className="flex items-center gap-2 text-primary font-bold">
+                            <Clock className="h-4 w-4" />
+                            <span>دوامك: {userProfile.checkInTime} إلى {userProfile.checkOutTime}</span>
+                        </div>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
         
         <Button 
             size="lg" 
             variant={userStatus === 'checked_in' ? 'destructive' : 'default'} 
-            className="w-full h-32 text-2xl font-bold shadow-2xl rounded-3xl active:scale-95 transition-all group overflow-hidden relative"
+            className="w-full h-24 text-xl font-bold shadow-lg"
             onClick={() => {
                 if (qrCodeRequired) {
                     setShowScanner(true);
@@ -413,56 +421,44 @@ export default function ScannerPage() {
             }}
             disabled={!qrCodeRequired && !isWithinRange && qrLocationCheckRequired}
         >
-           <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-           <ButtonIcon className="ml-4 h-10 w-10 relative z-10"/>
-           <span className="relative z-10">
-                {userStatus === 'checked_in' ? 'تسجيل انصراف' : 'تسجيل حضور'}
-           </span>
+           <ButtonIcon className="ml-2 h-6 w-6"/>
+           {userStatus === 'checked_in' ? 'تسجيل انصراف الآن' : 'تسجيل حضور الآن'}
         </Button>
-        
-        {!qrCodeRequired && !isWithinRange && (
-            <p className="text-center text-xs text-destructive animate-pulse font-bold">
-                يجب أن تكون داخل حدود الفرع للتسجيل
-            </p>
-        )}
+
+        <div className="grid grid-cols-2 gap-4">
+            <div className="p-3 bg-muted/50 rounded-lg text-center">
+                <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><History className="h-3 w-3" /> آخر عملية</p>
+                <p className="font-mono font-bold">{lastAction ? format(new Date(lastAction.time), 'HH:mm') : '--:--'}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg text-center">
+                <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><Target className="h-3 w-3" /> الحالة</p>
+                <Badge variant={userStatus === 'checked_in' ? "secondary" : "outline"}>
+                    {userStatus === 'checked_in' ? "متواجد" : "منصرف"}
+                </Badge>
+            </div>
+        </div>
       </div>
     );
   };
 
   const locationStatusMessage = () => {
-    if (isRequestingLocation) return "جاري تحديد موقعك الجغرافي...";
+    if (isRequestingLocation) return "جاري البحث عن أقرب فرع...";
     if (locationError) return locationError;
-    if (!targetLocationData) return "لا يوجد فروع قريبة منك.";
-    return targetLocationData.isInside ? `أنت الآن داخل نطاق ${targetLocationData.name}` : `أقرب فرع (${targetLocationData.name}): يبعد ${Math.round(targetLocationData.distance)}م`;
+    if (!targetLocationData) return "لم يتم العثور على فروع قريبة منك مسموح لك بها.";
+    return `أنت الآن في ${targetLocationData.name} (تبعد ${Math.round(targetLocationData.distance)}م)`;
   };
 
   return (
-    <div className="flex justify-center items-start pt-4 px-2 min-h-[80vh]">
-      <Card className="w-full max-w-md shadow-2xl border-0 bg-background/95 backdrop-blur-xl overflow-hidden rounded-[2.5rem]">
-        <div className="h-2 bg-primary"></div>
+    <div className="flex justify-center items-start pt-4 px-2">
+      <Card className="w-full max-w-md shadow-xl border-t-4 border-t-primary">
         <CardHeader className="text-center pb-2">
-          <CardTitle className="text-3xl font-headline text-primary mb-1">بصمة الحضور</CardTitle>
-          <CardDescription className="text-base font-bold bg-muted/50 py-1 px-4 rounded-full inline-block mx-auto">
-            {currentDate}
+          <CardTitle className="text-2xl font-headline">بصمة الحضور الذكية</CardTitle>
+          <CardDescription className="flex items-center justify-center gap-2">
+            <CalendarIcon className="h-4 w-4" /> {currentDate}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-8 p-6">
+        <CardContent className="space-y-6 pt-4">
             {renderContent()}
-            
-            <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-muted/30 rounded-3xl text-center border border-muted">
-                    <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider font-bold">الحالة</p>
-                    <Badge variant={userStatus === 'checked_in' ? 'secondary' : 'outline'} className="text-sm px-4">
-                        {userStatus === 'checked_in' ? 'متصل بالعمل' : 'منصرف'}
-                    </Badge>
-                </div>
-                <div className="p-4 bg-muted/30 rounded-3xl text-center border border-muted">
-                    <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider font-bold">آخر حركة</p>
-                    <p className="font-mono font-bold text-lg" dir="ltr">
-                        {lastAction ? format(new Date(lastAction.time), 'HH:mm') : '--:--'}
-                    </p>
-                </div>
-            </div>
         </CardContent>
       </Card>
     </div>

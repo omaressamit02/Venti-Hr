@@ -22,7 +22,7 @@ export interface QrCodePayloadDb {
   createdAt: object | number;
 }
 
-// The QR code will now contain a simple string: "id|locId|exp|sig"
+// The QR code will now contain a simple string: "id|locId|exp|sig" for easier scanning
 export type QrCodeString = string;
 
 
@@ -33,7 +33,7 @@ interface LocationData {
     lon: string;
 }
 
-const QR_REFRESH_INTERVAL_SECONDS = 15; // Increased slightly for better scan stability
+const QR_REFRESH_INTERVAL_SECONDS = 15; 
 
 export const useQrCodeManager = (locationData: LocationData | null) => {
   const db = useDb();
@@ -75,13 +75,8 @@ export const useQrCodeManager = (locationData: LocationData | null) => {
       const qrCodeRef = ref(db, `qr_codes/${locationData.id}`);
       await set(qrCodeRef, { ...newQrCodeForDb, createdAt: dbServerTimestamp() });
       
-      // Simpler structure for faster scanning
-      const newQrCodeForImage = JSON.stringify({
-        id: qrId,
-        locId: locationData.id,
-        expiry: expiryTimestamp,
-        signature: signature
-      });
+      // Much simpler structure: pipe-separated string is much less dense than JSON for QR codes
+      const newQrCodeForImage = `${qrId}|${locationData.id}|${expiryTimestamp}|${signature}`;
       
       setActiveQrCodeString(newQrCodeForImage);
       setExpiry(expiryTimestamp);
