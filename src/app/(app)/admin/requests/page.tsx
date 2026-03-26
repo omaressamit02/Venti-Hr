@@ -86,24 +86,28 @@ export default function AdminRequestsPage() {
  useEffect(() => {
     const fetchCurrentUser = async () => {
         const storedProfile = localStorage.getItem('userProfile');
-        if (storedProfile) {
-            const profile = JSON.parse(storedProfile);
-            // If it's the superuser, we don't need to fetch from DB
-            if (profile.id === 'superuser') {
-                setCurrentUserProfile(profile);
-                return;
-            }
-            // For regular users, fetch fresh data from DB to ensure permissions are up-to-date
-            if (db && profile.id) {
-                const userRef = ref(db, `employees/${profile.id}`);
-                const snapshot = await get(userRef);
-                if (snapshot.exists()) {
-                    setCurrentUserProfile({ ...snapshot.val(), id: profile.id });
-                } else {
-                     setCurrentUserProfile(profile); // Fallback to local storage if not found
+        if (storedProfile && storedProfile !== 'undefined') {
+            try {
+                const profile = JSON.parse(storedProfile);
+                // If it's the superuser, we don't need to fetch from DB
+                if (profile.id === 'superuser') {
+                    setCurrentUserProfile(profile);
+                    return;
                 }
-            } else {
-                 setCurrentUserProfile(profile);
+                // For regular users, fetch fresh data from DB to ensure permissions are up-to-date
+                if (db && profile.id) {
+                    const userRef = ref(db, `employees/${profile.id}`);
+                    const snapshot = await get(userRef);
+                    if (snapshot.exists()) {
+                        setCurrentUserProfile({ ...snapshot.val(), id: profile.id });
+                    } else {
+                         setCurrentUserProfile(profile); // Fallback to local storage if not found
+                    }
+                } else {
+                     setCurrentUserProfile(profile);
+                }
+            } catch (e) {
+                console.error("Error parsing profile in Admin Requests", e);
             }
         }
     };

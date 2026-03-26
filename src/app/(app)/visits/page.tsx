@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -89,8 +90,12 @@ export default function VisitsPage() {
 
   useEffect(() => {
     const storedProfile = localStorage.getItem('userProfile');
-    if (storedProfile) {
-      setUserProfile(JSON.parse(storedProfile));
+    if (storedProfile && storedProfile !== 'undefined') {
+      try {
+        setUserProfile(JSON.parse(storedProfile));
+      } catch (e) {
+        console.error("Error parsing profile in Visits", e);
+      }
     }
     fetchLocation();
   // eslint-disable-next-line react-hooks/exhaustive-deps

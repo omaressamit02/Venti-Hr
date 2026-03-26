@@ -105,12 +105,16 @@ export default function EmployeeRequestsPage() {
 
   useEffect(() => {
     const storedProfile = localStorage.getItem('userProfile');
-    if (storedProfile) {
-        const profile = JSON.parse(storedProfile);
-        setCurrentUserProfile(profile);
-        // Pre-select manager if available
-        if (profile.managerId) {
-            setSelectedManager(profile.managerId);
+    if (storedProfile && storedProfile !== 'undefined') {
+        try {
+            const profile = JSON.parse(storedProfile);
+            setCurrentUserProfile(profile);
+            // Pre-select manager if available
+            if (profile.managerId) {
+                setSelectedManager(profile.managerId);
+            }
+        } catch (e) {
+            console.error("Error parsing profile in Requests", e);
         }
     }
   }, []);

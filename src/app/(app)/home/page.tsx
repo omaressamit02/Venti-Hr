@@ -55,8 +55,12 @@ export default function HomePage() {
   useEffect(() => {
     setIsClient(true);
     const storedProfile = localStorage.getItem('userProfile');
-    if (storedProfile) {
-      setUserProfile(JSON.parse(storedProfile));
+    if (storedProfile && storedProfile !== 'undefined') {
+      try {
+        setUserProfile(JSON.parse(storedProfile));
+      } catch (e) {
+        console.error("Error parsing profile in Home", e);
+      }
     }
     setDateState(new Date());
     const timer = setInterval(() => setDateState(new Date()), 30000);

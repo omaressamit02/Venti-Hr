@@ -35,8 +35,14 @@ const useUserRole = () => {
 
     useEffect(() => {
         const storedProfile = localStorage.getItem('userProfile');
-        if (storedProfile) {
-            setUserProfile(JSON.parse(storedProfile));
+        if (storedProfile && storedProfile !== 'undefined') {
+            try {
+                setUserProfile(JSON.parse(storedProfile));
+            } catch (e) {
+                console.error("Error parsing user profile:", e);
+                localStorage.removeItem('userProfile');
+                router.push('/');
+            }
         } else {
             router.push('/');
         }
