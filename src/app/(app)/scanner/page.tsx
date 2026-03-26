@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { LogIn, LogOut, Loader2, CheckCircle, MapPin, RefreshCw, AlertTriangle, Clock, Camera, Target, History } from 'lucide-react';
+import { LogIn, LogOut, Loader2, CheckCircle, MapPin, RefreshCw, AlertTriangle, Clock, Camera, Target, History, Calendar as CalendarIcon } from 'lucide-react';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
 import { ref, set, update, query, orderByChild, equalTo, get, serverTimestamp as dbServerTimestamp, push, limitToLast } from 'firebase/database';
 import { md5 } from 'js-md5';
