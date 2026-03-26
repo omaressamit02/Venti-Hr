@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
-import { ref, push, query, type Query } from 'firebase/database';
+import { ref, push, query, set, type Query } from 'firebase/database';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
