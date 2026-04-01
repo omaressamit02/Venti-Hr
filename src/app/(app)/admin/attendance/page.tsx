@@ -94,6 +94,7 @@ interface Employee {
   employeeName: string;
   employeeCode: string;
   salary: number;
+  workDaysPerMonth?: number;
   dayOff?: string;
   daysOff?: string[];
   shiftConfiguration?: 'general' | 'custom';
@@ -216,7 +217,9 @@ export default function AttendancePage() {
         let isMissedCheckout = false;
         let earlyLeaveMinutes = 0;
         let earlyLeaveDeductionValue = 0;
-        const dailyRate = (employee.salary || 0) / 30;
+        
+        // CRITICAL: Calculate daily rate based on customized work days
+        const dailyRate = (employee.salary || 0) / (employee.workDaysPerMonth || 30);
 
         if (record.checkOut) {
             const checkOutTimestamp = new Date(record.checkOut).getTime();

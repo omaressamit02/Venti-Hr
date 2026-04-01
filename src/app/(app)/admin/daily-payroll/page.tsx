@@ -165,6 +165,7 @@ export default function DailyPayrollPage() {
         : Object.values(deductionRulesRaw);
         
     allEmployees.forEach(employee => {
+        // CRITICAL: Divider is customized per employee
         const dailySalary = (employee.salary || 0) / (employee.workDaysPerMonth || 30);
         const hourlyRate = dailySalary / (workHoursPerDay || 8);
         const minuteRate = hourlyRate / 60;

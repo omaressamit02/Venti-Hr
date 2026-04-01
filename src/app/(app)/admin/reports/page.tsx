@@ -331,6 +331,7 @@ export default function ReportsPage() {
               const employee = employeesData[employeeId];
               if (!employee) return null;
 
+              // CRITICAL: Divider is customized per employee
               const dailyRate = (employee.salary || 0) / (employee.workDaysPerMonth || 30);
 
               const bonusDays = dailyRate > 0 ? stats.bonuses / dailyRate : 0;
