@@ -93,11 +93,17 @@ const CameraScanner = ({ onScan, onError }: { onScan: (data: any) => void, onErr
     return (
         <div className="w-full aspect-square bg-black rounded-lg flex items-center justify-center overflow-hidden relative border-4 border-muted">
             <QrScanner
-                delay={100}
+                delay={300}
                 onError={onError}
                 onScan={onScan}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                constraints={{ video: { facingMode: "environment" } }}
+                constraints={{ 
+                    video: { 
+                        facingMode: "environment",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                }}
             />
             <div className="absolute inset-0 pointer-events-none border-[40px] border-black/40">
                 <div className="w-full h-full border-2 border-primary/50 relative">
@@ -280,9 +286,13 @@ export default function ScannerPage() {
     }
   }, [db, settings, toast, findOpenAttendanceRecord]);
 
-  const handleScan = useCallback(async (data: { text: string } | null) => {
+  const handleScan = useCallback(async (data: any) => {
     if (isProcessing) return;
     if (qrCodeRequired && !data) return;
+
+    // Standardize data from different versions of react-qr-scanner
+    const qrText = typeof data === 'string' ? data : data?.text;
+    if (qrCodeRequired && !qrText) return;
 
     setIsProcessing(true);
     try {
@@ -292,9 +302,9 @@ export default function ScannerPage() {
         let validatedLocationName = '';
         
         // 1. Process QR Data if required
-        if (qrCodeRequired && data) {
+        if (qrCodeRequired && qrText) {
             // Simplified string format: "id|locId|exp|sig"
-            const [id, locId, expiry, signature] = data.text.split('|');
+            const [id, locId, expiry, signature] = qrText.split('|');
             
             if (!id || !locId || !expiry || !signature) throw new Error("تنسيق رمز QR غير صالح.");
             
