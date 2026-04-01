@@ -21,7 +21,7 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import { BarChart, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Bar, ResponsiveContainer, Cell } from 'recharts';
-import { format, subMonths, getDaysInMonth, startOfMonth, eachDayOfInterval, isSameDay, endOfMonth } from 'date-fns';
+import { format, subMonths, getDaysInMonth, startOfMonth, eachDayOfInterval, isSameDay, endOfMonth, getDay } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,7 +60,7 @@ interface AttendanceRecord {
   checkIn?: string;
   checkOut?: string;
   delayMinutes?: number;
-  status?: 'present' | 'absent';
+  status?: 'present' | 'absent' | 'weekly_off';
 }
 
 interface FinancialTransaction {
@@ -95,7 +95,7 @@ const STATUS_CONFIG: { [key in DailyStatus]: { text: string; badgeVariant: 'seco
 
 const getWorkDaysInRange = (startDate: Date, endDate: Date, daysOff: string[]): Date[] => {
     const days = eachDayOfInterval({ start: startDate, end: endDate });
-    return days.filter(day => !daysOff.includes(day.getDay().toString()));
+    return days.filter(day => !daysOff.includes(getDay(day).toString()));
 };
 
 
@@ -139,7 +139,7 @@ export default function ReportsPage() {
     if (!allEmployees.length) return [];
 
     const reportDateStr = format(reportDate, 'yyyy-MM-dd');
-    const reportDayOfWeek = reportDate.getDay().toString();
+    const reportDayOfWeek = getDay(reportDate).toString();
 
     const report: {
         id: string;
@@ -152,19 +152,27 @@ export default function ReportsPage() {
     }[] = [];
     
     allEmployees.forEach(employee => {
-        // 1. Check for weekly day off
-        const employeeDaysOff = employee.daysOff || [];
-        if(employeeDaysOff.includes(reportDayOfWeek)) {
-            report.push({
-                id: employee.id,
-                employeeName: employee.employeeName,
-                status: 'weekly_off',
-                notes: 'إجازة أسبوعية'
-            });
-            return; // Move to next employee
+        // 1. Check for manual attendance record first (might override status)
+        const attendanceRecord = attendanceDataDaily ? Object.values(attendanceDataDaily).find(rec => rec.employeeId === employee.id && rec.date === reportDateStr) : null;
+
+        if (attendanceRecord?.status === 'weekly_off') {
+             report.push({ id: employee.id, employeeName: employee.employeeName, status: 'weekly_off', notes: 'إجازة أسبوعية بديلة' });
+             return;
+        }
+        
+        if (attendanceRecord?.status === 'absent') {
+             report.push({ id: employee.id, employeeName: employee.employeeName, status: 'absent', notes: 'تم احتسابه غياب' });
+             return;
         }
 
-        // 2. Check for approved leave
+        // 2. Check for regular weekly day off
+        const employeeDaysOff = employee.daysOff || [];
+        if(employeeDaysOff.includes(reportDayOfWeek)) {
+            report.push({ id: employee.id, employeeName: employee.employeeName, status: 'weekly_off', notes: 'إجازة أسبوعية' });
+            return;
+        }
+
+        // 3. Check for approved leave
         const employeeRequests = requestsData?.[employee.id] ? Object.values(requestsData[employee.id]) : [];
         const approvedLeave = employeeRequests.find(req => {
             if (req.status === 'approved' && req.requestType.startsWith('leave')) {
@@ -187,22 +195,20 @@ export default function ReportsPage() {
             return;
         }
 
-        // 3. Check for attendance record
-        const attendanceRecord = attendanceDataDaily ? Object.values(attendanceDataDaily).find(rec => rec.employeeId === employee.id && rec.date === reportDateStr) : null;
-        
-        if (attendanceRecord) {
+        // 4. Check for attendance (present)
+        if (attendanceRecord && attendanceRecord.checkIn) {
              report.push({
                 id: employee.id,
                 employeeName: employee.employeeName,
                 status: 'present',
-                checkInTime: attendanceRecord.checkIn ? new Date(attendanceRecord.checkIn).toLocaleTimeString('ar-EG') : undefined,
+                checkInTime: new Date(attendanceRecord.checkIn).toLocaleTimeString('ar-EG'),
                 checkOutTime: attendanceRecord.checkOut ? new Date(attendanceRecord.checkOut).toLocaleTimeString('ar-EG') : undefined,
                 delayMinutes: attendanceRecord.delayMinutes,
              });
              return;
         }
         
-        // 4. If none of the above, employee is absent
+        // 5. If none of the above, employee is absent
         report.push({
             id: employee.id,
             employeeName: employee.employeeName,
@@ -225,58 +231,6 @@ export default function ReportsPage() {
     return counts;
   }, [dailyAttendanceReport]);
 
-  // --- Monthly Delay Report Logic ---
-  const monthlyDelayReport = useMemo(() => {
-    if (!attendanceDataMonthly || !employeesData) return [];
-    
-    const delayByEmployee: Record<string, { totalDelay: number, attendanceDays: number, penalties: number, bonuses: number }> = {};
-     allEmployees.forEach(emp => {
-        delayByEmployee[emp.id] = { totalDelay: 0, attendanceDays: 0, penalties: 0, bonuses: 0 };
-    });
-
-    Object.values(attendanceDataMonthly).forEach(rec => {
-        if (delayByEmployee[rec.employeeId]) {
-             if (rec.delayMinutes && rec.delayMinutes > 0) {
-                delayByEmployee[rec.employeeId].totalDelay += rec.delayMinutes;
-            }
-             if (rec.checkIn) {
-                delayByEmployee[rec.employeeId].attendanceDays++;
-            }
-        }
-    });
-
-     if (transactionsData) {
-        Object.entries(transactionsData).forEach(([employeeId, employeeMonths]) => {
-            if(delayByEmployee[employeeId] && employeeMonths) {
-                const monthTransactions = employeeMonths[reportMonth];
-                if (monthTransactions) {
-                    Object.values(monthTransactions).forEach(tx => {
-                        if (tx.type === 'bonus') {
-                            delayByEmployee[employeeId].bonuses += tx.amount;
-                        } else if (tx.type === 'penalty') {
-                            delayByEmployee[employeeId].penalties += tx.amount;
-                        }
-                    });
-                }
-            }
-        });
-    }
-
-    const report = Object.entries(delayByEmployee).map(([employeeId, stats]) => ({
-            employeeId,
-            employeeName: employeesData[employeeId]?.employeeName || 'غير معروف',
-            ...stats
-        }));
-    
-    return report.sort((a, b) => {
-        if (a.totalDelay !== b.totalDelay) return b.totalDelay - a.totalDelay;
-        if(a.attendanceDays !== b.attendanceDays) return b.attendanceDays - a.attendanceDays;
-        const netA = a.bonuses - a.penalties;
-        const netB = b.bonuses - a.penalties;
-        return netB - netA;
-    });
-
-  }, [attendanceDataMonthly, employeesData, allEmployees, transactionsData, reportMonth]);
 
     // --- Ideal Employee Report Logic ---
     const idealEmployeeReport = useMemo(() => {
@@ -309,7 +263,7 @@ export default function ReportsPage() {
               if (rec.delayMinutes && rec.delayMinutes > 0) {
                   employeeStats[rec.employeeId].totalDelay += rec.delayMinutes;
               }
-              if (rec.checkIn) {
+              if (rec.checkIn && rec.status !== 'weekly_off' && rec.status !== 'absent') {
                   if (!presentDaysByEmployee[rec.employeeId]) {
                     presentDaysByEmployee[rec.employeeId] = new Set();
                   }
@@ -339,6 +293,10 @@ export default function ReportsPage() {
         let absenceCount = 0;
         workDays.forEach(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
+            // Respect manual 'weekly_off' override from attendance records
+            const manualOff = Object.values(attendanceDataMonthly || {}).some(a => a.employeeId === emp.id && a.date === dayStr && a.status === 'weekly_off');
+            if (manualOff) return;
+
             const attended = presentDaysByEmployee[emp.id]?.has(dayStr);
             if (!attended && !approvedLeaveDays.has(dayStr)) {
                 absenceCount++;

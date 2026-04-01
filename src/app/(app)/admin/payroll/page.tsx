@@ -114,6 +114,8 @@ interface GlobalSettings {
     workEndTime?: string;
     companyName?: string;
     fixedDeductions?: FixedDeduction[];
+    holidayWorkCompensationType?: 'leave' | 'cash';
+    holidayWorkCashAmount?: number;
 }
 
 interface PayrollItem {
@@ -130,6 +132,7 @@ interface PayrollItem {
     approvedLeaveDeductions: number;
     incompleteRecordDeductions: number;
     permissionDeductions: number;
+    holidayWorkPay: number;
     bonus: number;
     penalty: number;
     loanDeduction: number;
@@ -153,7 +156,7 @@ interface PayslipProps {
 // ---------------- Payslip Component ----------------
 
 export function Payslip({ item, month, payable, companyName, formatCurrency }: PayslipProps) {
-    const totalAdditions = item.bonus + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
+    const totalAdditions = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
     const totalDeductions = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0) + item.permissionDeductions;
     
     return (
@@ -197,6 +200,7 @@ export function Payslip({ item, month, payable, companyName, formatCurrency }: P
                         <div className="space-y-2">
                             <div className="flex justify-between"><span>الراتب الأساسي</span><span className="font-mono">{formatCurrency(item.baseSalary)}</span></div>
                             <div className="flex justify-between"><span>مكافآت</span><span className="font-mono">{formatCurrency(item.bonus)}</span></div>
+                            {item.holidayWorkPay > 0 && <div className="flex justify-between"><span>عمل أيام عطلة</span><span className="font-mono">{formatCurrency(item.holidayWorkPay)}</span></div>}
                             {item.fixedAdditions.map(add => (
                             <div key={add.name} className="flex justify-between"><span>{add.name}</span><span className="font-mono">{formatCurrency(add.amount)}</span></div>
                             ))}
@@ -297,9 +301,10 @@ export default function PayrollPage() {
 
     const newPayrollData: PayrollItem[] = allEmployees.map(employee => {
         
+        // Critical: Calculate daily rate based on specific workDaysPerMonth
         const dailyRate = employee.salary / (employee.workDaysPerMonth || 30);
         const workHoursPerDay = settings.workStartTime && settings.workEndTime 
-            ? differenceInHours(new Date(`1970-01-01T${settings.workEndTime}`), new Date(`1970-01-01T${settings.workStartTime}`))
+            ? Math.max(1, differenceInHours(new Date(`1970-01-01T${settings.workEndTime}`), new Date(`1970-01-01T${settings.workStartTime}`)))
             : 8;
         const hourlyRate = dailyRate / workHoursPerDay;
         const minuteRate = hourlyRate / 60;
@@ -337,12 +342,14 @@ export default function PayrollPage() {
         const permissionDeductions = approvedEarlyLeavePermissionHours * hourlyRate;
 
 
-        // 3. Absence Calculation (Respecting manual Weekly Off swaps)
+        // 3. Absence Calculation (Respecting individual daysOff and manual Weekly Off swaps)
         const daysOff = employee.daysOff || [];
-        const workDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd }).filter(day => {
+        const daysInMonthInterval = eachDayOfInterval({ start: monthStart, end: monthEnd });
+        
+        const workDaysInMonth = daysInMonthInterval.filter(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
-            if (manualWeeklyOffDays.has(dayStr)) return false; // This day was swapped to Weekly Off
-            return !daysOff.includes(getDay(day).toString()); // Regular schedule
+            if (manualWeeklyOffDays.has(dayStr)) return false; // This day was swapped to Weekly Off (forgiveness)
+            return !daysOff.includes(getDay(day).toString()); // Regular schedule check
         });
 
         let absenceDays = 0;
@@ -350,16 +357,18 @@ export default function PayrollPage() {
 
         workDaysInMonth.forEach(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
+            // If neither present nor on approved leave
             if (!presentDays.has(dayStr) && !approvedLeaveDays.has(dayStr)) {
                 absenceDays++;
             }
             const record = employeeAttendance.find(r => r.date === dayStr);
+            // Check-in exists but no check-out
             if (record && record.checkIn && !record.checkOut) {
                 incompleteRecords++;
             }
         });
-        const absenceDeductions = absenceDays * (settings.deductionForAbsence || 0) * dailyRate;
-        const incompleteRecordDeductions = incompleteRecords * (settings.deductionForIncompleteRecord || 0) * dailyRate;
+        const absenceDeductions = absenceDays * (settings.deductionForAbsence || 1) * dailyRate;
+        const incompleteRecordDeductions = incompleteRecords * (settings.deductionForIncompleteRecord || 0.5) * dailyRate;
 
         // 4. Delay Deductions
         let delayDeductions = 0;
@@ -399,7 +408,7 @@ export default function PayrollPage() {
         const employeeTransactions = transactionsData?.[employee.id]?.[selectedMonth] ? Object.values(transactionsData[employee.id][selectedMonth]) : [];
         const bonus = employeeTransactions.filter(t => t.type === 'bonus').reduce((acc, t) => acc + t.amount, 0);
         const penalty = employeeTransactions.filter(t => t.type === 'penalty').reduce((acc, t) => acc + t.amount, 0);
-        const loanDeduction = 0; 
+        const loanDeduction = 0; // Simplified for now
         const salaryAdvanceDeductions = employeeTransactions.filter(t => t.type === 'salary_advance').reduce((acc, t) => acc + t.amount, 0);
 
         // 7. Fixed Items
@@ -412,6 +421,19 @@ export default function PayrollPage() {
             if (item.transactionType === 'deduction') fixedDeductions.push({ name: item.name, amount });
             else fixedAdditions.push({ name: item.name, amount });
         });
+
+        // 8. Holiday Work Pay (Smart feature)
+        let holidayWorkPay = 0;
+        if (settings.holidayWorkCompensationType === 'cash' && settings.holidayWorkCashAmount) {
+            const holidayWorkDaysCount = employeeAttendance.filter(a => {
+                if (a.status !== 'present') return false;
+                const dayDate = new Date(a.date);
+                const dayOfWeek = getDay(dayDate).toString();
+                // Is this day either a regular off or manually marked as off?
+                return daysOff.includes(dayOfWeek) || a.status === 'weekly_off';
+            }).length;
+            holidayWorkPay = holidayWorkDaysCount * settings.holidayWorkCashAmount;
+        }
 
         return {
             employeeId: employee.id,
@@ -427,6 +449,7 @@ export default function PayrollPage() {
             approvedLeaveDeductions: 0,
             incompleteRecordDeductions,
             permissionDeductions,
+            holidayWorkPay,
             bonus,
             penalty,
             loanDeduction,
@@ -457,7 +480,7 @@ export default function PayrollPage() {
   };
   
   const calculatePayable = (item: PayrollItem) => {
-    const totalAdditions = item.bonus + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
+    const totalAdditions = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
     const totalDeductions = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.permissionDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0);
     const netSalary = item.baseSalary + totalAdditions - totalDeductions;
     return { netSalary, totalAdditions, totalDeductions };
@@ -478,6 +501,7 @@ export default function PayrollPage() {
     message += `---------------------\n\n`;
     message += `*الاستحقاقات*\nالراتب الأساسي: ${formatValue(item.baseSalary)}\n`;
     if (item.bonus > 0) message += `مكافآت: ${formatValue(item.bonus)}\n`;
+    if (item.holidayWorkPay > 0) message += `عمل أيام عطلة: ${formatValue(item.holidayWorkPay)}\n`;
     item.fixedAdditions.forEach(add => add.amount > 0 && (message += `${add.name}: ${formatValue(add.amount)}\n`));
     message += `*إجمالي الاستحقاقات: ${formatValue(item.baseSalary + totalAdditions)}*\n\n`;
     message += `---------------------\n\n`;
