@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -11,12 +10,12 @@ import { ref, set, update, query, orderByChild, equalTo, get, push, limitToLast 
 import { md5 } from 'js-md5';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import QrScanner from 'react-qr-scanner';
 import { format, subDays } from 'date-fns';
 import { arEG } from 'date-fns/locale';
 import { SERVER_SECRET } from '@/hooks/use-qr-code-manager';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Html5Qrcode } from 'html5-qrcode';
 
 
 interface EmployeeProfile {
@@ -89,22 +88,41 @@ const getWorkDayDate = (date: Date): Date => {
 
 type UserStatus = 'checked_in' | 'checked_out' | 'loading' | 'error';
 
-const CameraScanner = ({ onScan, onError }: { onScan: (data: any) => void, onError: (error: any) => void }) => {
+const CameraScanner = ({ onScan, onError }: { onScan: (data: string) => void, onError: (error: any) => void }) => {
+    useEffect(() => {
+        const scannerId = "qr-reader";
+        const html5QrCode = new Html5Qrcode(scannerId);
+        
+        const qrCodeSuccessCallback = (decodedText: string) => {
+            onScan(decodedText);
+        };
+        
+        const config = { 
+            fps: 15, 
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0
+        };
+
+        html5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            qrCodeSuccessCallback,
+            () => {} // Silent error for every non-detected frame
+        ).catch(err => {
+            console.error("Scanner start error:", err);
+            onError(err);
+        });
+
+        return () => {
+            if (html5QrCode.isScanning) {
+                html5QrCode.stop().catch(err => console.error("Scanner stop error:", err));
+            }
+        };
+    }, [onScan, onError]);
+
     return (
         <div className="w-full aspect-square bg-black rounded-lg flex items-center justify-center overflow-hidden relative border-4 border-muted">
-            <QrScanner
-                delay={300}
-                onError={onError}
-                onScan={onScan}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                constraints={{ 
-                    video: { 
-                        facingMode: "environment",
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    } 
-                }}
-            />
+            <div id="qr-reader" className="w-full h-full"></div>
             <div className="absolute inset-0 pointer-events-none border-[40px] border-black/40">
                 <div className="w-full h-full border-2 border-primary/50 relative">
                     <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary"></div>
@@ -114,7 +132,7 @@ const CameraScanner = ({ onScan, onError }: { onScan: (data: any) => void, onErr
                     <div className="absolute top-0 left-0 w-full h-0.5 bg-primary/50 animate-scan"></div>
                 </div>
             </div>
-            <p className="absolute bottom-4 left-0 right-0 text-center text-white text-xs bg-black/60 py-1">وجه الكاميرا نحو الرمز الموجود على شاشة الفرع</p>
+            <p className="absolute bottom-4 left-0 right-0 text-center text-white text-[10px] bg-black/60 py-1 px-2">وجه الكاميرا نحو الرمز الموجود على شاشة الفرع</p>
         </div>
     );
 };
@@ -290,12 +308,9 @@ export default function ScannerPage() {
     }
   }, [db, settings, toast, findOpenAttendanceRecord]);
 
-  const handleScan = useCallback(async (data: any) => {
+  const handleScan = useCallback(async (data: string | null) => {
     if (isProcessing) return;
     if (qrCodeRequired && !data) return;
-
-    const qrText = typeof data === 'string' ? data : data?.text;
-    if (qrCodeRequired && !qrText) return;
 
     setIsProcessing(true);
     try {
@@ -304,8 +319,8 @@ export default function ScannerPage() {
         let validatedLocationId = '';
         let validatedLocationName = '';
         
-        if (qrCodeRequired && qrText) {
-            const [id, locId, expiry, signature] = qrText.split('|');
+        if (qrCodeRequired && data) {
+            const [id, locId, expiry, signature] = data.split('|');
             
             if (!id || !locId || !expiry || !signature) throw new Error("تنسيق رمز QR غير صالح.");
             

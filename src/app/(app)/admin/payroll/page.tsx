@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
@@ -154,6 +153,14 @@ interface PayslipProps {
     formatCurrency: (amount: number) => string | number;
 }
 
+// ---------------- Helper Calculation (No Recursion) ----------------
+
+const getCalculatedPayable = (item: PayrollItem) => {
+    const totalAdditions = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
+    const totalDeductions = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.permissionDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0);
+    return item.baseSalary + totalAdditions - totalDeductions;
+};
+
 // ---------------- Payslip Component ----------------
 
 export function Payslip({ item, month, payable, companyName, formatCurrency }: PayslipProps) {
@@ -286,12 +293,12 @@ export default function PayrollPage() {
 
   useEffect(() => { setIsClient(true); }, []);
 
-  // --- Helper to calculate payable without recursion ---
-  const calculatePayableValues = (item: PayrollItem) => {
-    const totalAdditionsVal = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
-    const totalDeductionsVal = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.permissionDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0);
-    const netSalaryVal = item.baseSalary + totalAdditionsVal - totalDeductionsVal;
-    return { netSalary: netSalaryVal, totalAdditions: totalAdditionsVal, totalDeductions: totalDeductionsVal };
+  // --- Helper to calculate total breakdown for display ---
+  const calculateDisplayValues = (item: PayrollItem) => {
+    const totalAdditions = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
+    const totalDeductions = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.permissionDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0);
+    const netSalary = item.baseSalary + totalAdditions - totalDeductions;
+    return { netSalary, totalAdditions, totalDeductions };
   };
 
   // --- Main Calculation Logic ---
@@ -320,7 +327,6 @@ export default function PayrollPage() {
         const minuteRate = hourlyRate / 60;
 
         const employeeAttendance = attendanceData ? Object.values(attendanceData).filter(a => a.employeeId === employee.id) : [];
-        const presentDaysCount = employeeAttendance.filter(a => a.status === 'present' || !a.status).length;
         const presentDates = new Set(employeeAttendance.filter(a => a.status === 'present' || !a.status).map(a => a.date));
         const manualWeeklyOffDays = new Set(employeeAttendance.filter(a => a.status === 'weekly_off').map(a => a.date));
         
@@ -334,8 +340,8 @@ export default function PayrollPage() {
         
         employeeRequests.forEach(req => {
             if (req.status === 'approved') {
-                const reqStart = startOfMonth(new Date(req.startDate));
-                if (reqStart.getMonth() !== monthStart.getMonth() || reqStart.getFullYear() !== monthStart.getFullYear()) return;
+                const reqDate = new Date(req.startDate);
+                if (reqDate.getMonth() !== monthStart.getMonth() || reqDate.getFullYear() !== monthStart.getFullYear()) return;
 
                 if (req.requestType.startsWith('leave')) {
                     eachDayOfInterval({ start: new Date(req.startDate), end: new Date(req.endDate) }).forEach(day => approvedLeaveDays.add(format(day, 'yyyy-MM-dd')));
@@ -376,7 +382,7 @@ export default function PayrollPage() {
             }
         });
 
-        // CRITICAL FIX: Absence deductions must NOT exceed the paid days quota (workDaysConfig)
+        // CRITICAL FIX: Absence deductions must NOT exceed the working days quota
         const effectiveAbsenceDays = Math.min(calendarAbsenceDays, workDaysConfig);
         const absenceDeductions = effectiveAbsenceDays * (settings.deductionForAbsence || 1) * dailyRate;
         
@@ -494,7 +500,7 @@ export default function PayrollPage() {
   };
 
   const generateShareMessage = (item: PayrollItem) => {
-    const { netSalary, totalDeductions, totalAdditions } = calculatePayableValues(item);
+    const { netSalary, totalDeductions, totalAdditions } = calculateDisplayValues(item);
     const monthName = new Date(selectedMonth + '-02').toLocaleDateString('ar', { month: 'long', year: 'numeric' });
     const formatValue = (value: number) => `${formatCurrency(value)} ج.م`;
 
@@ -585,7 +591,7 @@ export default function PayrollPage() {
                     Array.from({length: 3}).map((_, i) => <TableRow key={`loading-row-${i}`}><TableCell colSpan={7}><Skeleton className="h-10 w-full"/></TableCell></TableRow>)
                 ) : payrollData.length > 0 ? (
                     payrollData.map((item) => {
-                        const { netSalary, totalDeductions, totalAdditions } = calculatePayableValues(item);
+                        const { netSalary, totalAdditions, totalDeductions } = calculateDisplayValues(item);
                         return (
                             <TableRow key={item.employeeId}>
                                 <TableCell className="text-right font-medium">{item.employeeName}</TableCell>
@@ -623,7 +629,7 @@ export default function PayrollPage() {
             {isLoading && !isCalculating ? (
                 Array.from({length: 3}).map((_, i) => <Card key={i}><CardContent className="p-4"><Skeleton className="h-24 w-full"/></CardContent></Card>)
             ) : payrollData.map(item => {
-                const { netSalary, totalDeductions, totalAdditions } = calculatePayableValues(item);
+                const { netSalary, totalAdditions, totalDeductions } = calculateDisplayValues(item);
                 return (
                     <Card key={item.employeeId}>
                         <CardHeader className="p-4 pb-2">

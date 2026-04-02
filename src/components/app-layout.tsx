@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -49,7 +48,7 @@ const useUserRole = () => {
                 localStorage.removeItem('userProfile');
                 router.push('/');
             }
-        } else {
+        } else if (storedProfileStr !== null) {
             router.push('/');
         }
 
