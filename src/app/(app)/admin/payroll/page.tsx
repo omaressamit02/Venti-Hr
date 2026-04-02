@@ -286,6 +286,14 @@ export default function PayrollPage() {
 
   useEffect(() => { setIsClient(true); }, []);
 
+  // --- Helper to calculate payable without recursion ---
+  const calculatePayableValues = (item: PayrollItem) => {
+    const totalAdditionsVal = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
+    const totalDeductionsVal = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.permissionDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0);
+    const netSalaryVal = item.baseSalary + totalAdditionsVal - totalDeductionsVal;
+    return { netSalary: netSalaryVal, totalAdditions: totalAdditionsVal, totalDeductions: totalDeductionsVal };
+  };
+
   // --- Main Calculation Logic ---
   const handleCalculatePayroll = () => {
     setIsCalculating(true);
@@ -302,8 +310,6 @@ export default function PayrollPage() {
     const allEmployees: Employee[] = Object.entries(employeesData).map(([id, employee]) => ({ ...employee, id }));
 
     const newPayrollData: PayrollItem[] = allEmployees.map(employee => {
-        
-        // CRITICAL: Calculate daily rate based on specific workDaysPerMonth
         const workDaysConfig = employee.workDaysPerMonth || 30;
         const dailyRate = employee.salary / workDaysConfig;
         
@@ -313,7 +319,6 @@ export default function PayrollPage() {
         const hourlyRate = dailyRate / workHoursPerDay;
         const minuteRate = hourlyRate / 60;
 
-        // 1. Attendance Data
         const employeeAttendance = attendanceData ? Object.values(attendanceData).filter(a => a.employeeId === employee.id) : [];
         const presentDays = new Set(employeeAttendance.filter(a => a.status === 'present' || !a.status).map(a => a.date));
         const manualWeeklyOffDays = new Set(employeeAttendance.filter(a => a.status === 'weekly_off').map(a => a.date));
@@ -321,7 +326,6 @@ export default function PayrollPage() {
         const totalDelayMinutes = employee.disableDeductions ? 0 : employeeAttendance.reduce((acc, curr) => acc + (curr.delayMinutes || 0), 0);
         const totalEarlyLeaveMinutes = employee.disableDeductions ? 0 : employeeAttendance.reduce((acc, curr) => acc + (curr.earlyLeaveMinutes || 0), 0);
 
-        // 2. Approved Leaves & Permissions
         const employeeRequests = requestsData?.[employee.id] ? Object.values(requestsData[employee.id]) : [];
         const approvedLeaveDays = new Set<string>();
         let approvedEarlyLeavePermissionHours = 0;
@@ -345,15 +349,13 @@ export default function PayrollPage() {
         });
         const permissionDeductions = approvedEarlyLeavePermissionHours * hourlyRate;
 
-
-        // 3. Absence Calculation (Respecting individual daysOff and manual Weekly Off swaps)
         const daysOff = employee.daysOff || [];
         const daysInMonthInterval = eachDayOfInterval({ start: monthStart, end: monthEnd });
         
         const workDaysInMonth = daysInMonthInterval.filter(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
-            if (manualWeeklyOffDays.has(dayStr)) return false; // This day was swapped to Weekly Off (forgiveness)
-            return !daysOff.includes(getDay(day).toString()); // Regular schedule check
+            if (manualWeeklyOffDays.has(dayStr)) return false;
+            return !daysOff.includes(getDay(day).toString());
         });
 
         let absenceDays = 0;
@@ -361,12 +363,10 @@ export default function PayrollPage() {
 
         workDaysInMonth.forEach(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
-            // If neither present nor on approved leave
             if (!presentDays.has(dayStr) && !approvedLeaveDays.has(dayStr)) {
                 absenceDays++;
             }
             const record = employeeAttendance.find(r => r.date === dayStr);
-            // Check-in exists but no check-out
             if (record && record.checkIn && !record.checkOut) {
                 incompleteRecords++;
             }
@@ -374,7 +374,6 @@ export default function PayrollPage() {
         const absenceDeductions = absenceDays * (settings.deductionForAbsence || 1) * dailyRate;
         const incompleteRecordDeductions = incompleteRecords * (settings.deductionForIncompleteRecord || 0.5) * dailyRate;
 
-        // 4. Delay Deductions
         let delayDeductions = 0;
         let chargeableDelayMinutes = 0;
         if (!ignoreDelayDeductions) {
@@ -396,7 +395,6 @@ export default function PayrollPage() {
             }
         }
         
-        // 5. Early Leave
         let earlyLeaveDeductions = 0;
         const earlyLeaveRulesRaw = settings.earlyLeaveDeductionRules || [];
         const earlyLeaveRules: DeductionRule[] = Array.isArray(earlyLeaveRulesRaw) ? earlyLeaveRulesRaw : Object.values(earlyLeaveRulesRaw);
@@ -408,14 +406,12 @@ export default function PayrollPage() {
             }
         }
 
-        // 6. Financial Transactions
         const employeeTransactions = transactionsData?.[employee.id]?.[selectedMonth] ? Object.values(transactionsData[employee.id][selectedMonth]) : [];
         const bonus = employeeTransactions.filter(t => t.type === 'bonus').reduce((acc, t) => acc + t.amount, 0);
         const penalty = employeeTransactions.filter(t => t.type === 'penalty').reduce((acc, t) => acc + t.amount, 0);
-        const loanDeduction = 0; // Simplified for now
+        const loanDeduction = employeeTransactions.filter(t => t.type === 'loan').reduce((acc, t) => acc + t.amount, 0);
         const salaryAdvanceDeductions = employeeTransactions.filter(t => t.type === 'salary_advance').reduce((acc, t) => acc + t.amount, 0);
 
-        // 7. Fixed Items
         const fixedDeductions: { name: string; amount: number }[] = [];
         const fixedAdditions: { name: string; amount: number }[] = [];
         const fixedItems: FixedDeduction[] = Array.isArray(settings?.fixedDeductions) ? settings.fixedDeductions : settings?.fixedDeductions ? Object.values(settings.fixedDeductions) : [];
@@ -426,16 +422,13 @@ export default function PayrollPage() {
             else fixedAdditions.push({ name: item.name, amount });
         });
 
-        // 8. Holiday Work Pay (Smart feature)
         let holidayWorkPay = 0;
         if (settings.holidayWorkCompensationType === 'cash' && settings.holidayWorkCashAmount) {
             const holidayWorkDaysCount = employeeAttendance.filter(a => {
                 const isPresent = a.status === 'present' || (!a.status && a.checkIn);
                 if (!isPresent) return false;
-                
                 const dayDate = new Date(a.date);
                 const dayOfWeek = getDay(dayDate).toString();
-                // Is this day either a regular off or manually marked as off?
                 return daysOff.includes(dayOfWeek);
             }).length;
             holidayWorkPay = holidayWorkDaysCount * settings.holidayWorkCashAmount;
@@ -486,21 +479,13 @@ export default function PayrollPage() {
     toast({ title: 'تم دفع جميع الرواتب بنجاح' });
   };
   
-  const calculatePayable = (item: PayrollItem) => {
-    const { netSalary, totalDeductions, totalAdditions } = calculatePayable(item);
-    const totalAdditionsVal = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
-    const totalDeductionsVal = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.permissionDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0);
-    const netSalaryVal = item.baseSalary + totalAdditionsVal - totalDeductionsVal;
-    return { netSalary: netSalaryVal, totalAdditions: totalAdditionsVal, totalDeductions: totalDeductionsVal };
-  }
-  
   const handleOpenShareDialog = (item: PayrollItem) => {
     setSharingItem(item);
     setIsShareDialogOpen(true);
   };
 
   const generateShareMessage = (item: PayrollItem) => {
-    const { netSalary, totalDeductions, totalAdditions } = calculatePayable(item);
+    const { netSalary, totalDeductions, totalAdditions } = calculatePayableValues(item);
     const monthName = new Date(selectedMonth + '-02').toLocaleDateString('ar', { month: 'long', year: 'numeric' });
     const formatValue = (value: number) => `${formatCurrency(value)} ج.م`;
 
@@ -573,7 +558,6 @@ export default function PayrollPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Desktop Table */}
           <div className="hidden md:block">
             <Table>
                 <TableHeader>
@@ -592,7 +576,7 @@ export default function PayrollPage() {
                     Array.from({length: 3}).map((_, i) => <TableRow key={`loading-row-${i}`}><TableCell colSpan={7}><Skeleton className="h-10 w-full"/></TableCell></TableRow>)
                 ) : payrollData.length > 0 ? (
                     payrollData.map((item) => {
-                        const { netSalary, totalDeductions, totalAdditions } = calculatePayable(item);
+                        const { netSalary, totalDeductions, totalAdditions } = calculatePayableValues(item);
                         return (
                             <TableRow key={item.employeeId}>
                                 <TableCell className="text-right font-medium">{item.employeeName}</TableCell>
@@ -626,12 +610,11 @@ export default function PayrollPage() {
             </Table>
           </div>
 
-          {/* Mobile View */}
           <div className="md:hidden space-y-4">
             {isLoading && !isCalculating ? (
                 Array.from({length: 3}).map((_, i) => <Card key={i}><CardContent className="p-4"><Skeleton className="h-24 w-full"/></CardContent></Card>)
             ) : payrollData.map(item => {
-                const { netSalary, totalDeductions, totalAdditions } = calculatePayable(item);
+                const { netSalary, totalDeductions, totalAdditions } = calculatePayableValues(item);
                 return (
                     <Card key={item.employeeId}>
                         <CardHeader className="p-4 pb-2">
@@ -670,7 +653,6 @@ export default function PayrollPage() {
         )}
       </Card>
       
-      {/* Print/Preview Dialog */}
        <Dialog open={!!selectedPayslip} onOpenChange={(open) => !open && setSelectedPayslip(null)}>
             <DialogContent className="max-w-4xl p-0">
                 <DialogHeader className="p-4 border-b">
@@ -690,7 +672,6 @@ export default function PayrollPage() {
             </DialogContent>
         </Dialog>
 
-      {/* Share Preview Dialog */}
        <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
             <DialogContent>
                 <DialogHeader><DialogTitle>مشاركة ملخص الراتب</DialogTitle></DialogHeader>

@@ -36,7 +36,6 @@ export default function HomePage() {
   
   const db = useDb();
   
-  // --- Data Fetching ---
   const currentMonthStr = useMemo(() => format(new Date(), 'yyyy-MM'), []);
   
   const attendanceRef = useMemoFirebase(() => 
@@ -51,13 +50,12 @@ export default function HomePage() {
   
   const isLoading = isAttendanceLoading || isRequestsLoading;
   
-  // --- Effects ---
   useEffect(() => {
     setIsClient(true);
-    const storedProfile = localStorage.getItem('userProfile');
-    if (storedProfile && storedProfile.trim() !== '' && storedProfile !== 'undefined' && storedProfile !== 'null') {
+    const storedProfileStr = localStorage.getItem('userProfile');
+    if (storedProfileStr && storedProfileStr.trim() !== '' && storedProfileStr !== 'undefined' && storedProfileStr !== 'null') {
       try {
-        const parsed = JSON.parse(storedProfile);
+        const parsed = JSON.parse(storedProfileStr);
         if (parsed && typeof parsed === 'object') {
             setUserProfile(parsed);
         }
@@ -71,8 +69,6 @@ export default function HomePage() {
     return () => clearInterval(timer);
   }, []);
   
-  // --- Memoized Calculations ---
-
   const userAttendance = useMemo(() => {
     if (!monthlyAttendance || !userProfile) return [];
     return Object.values(monthlyAttendance).filter(rec => rec.employeeId === userProfile.id);
@@ -85,7 +81,7 @@ export default function HomePage() {
     const todayRecord = userAttendance.find(rec => rec.date === todayStr);
 
     if (!todayRecord) {
-         const lastRecord = userAttendance.sort((a,b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime())[0];
+         const lastRecord = [...userAttendance].sort((a,b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime())[0];
          if(lastRecord && lastRecord.checkOut) {
              return { status: 'خارج العمل', time: `آخر انصراف: ${new Date(lastRecord.checkOut).toLocaleTimeString('ar-EG')}` };
          } else if (lastRecord) {
@@ -113,7 +109,7 @@ export default function HomePage() {
   }, [allRequests]);
   
   const remainingLeaveDays = useMemo(() => {
-    const totalLeaveBalance = 21; // Assume a standard balance
+    const totalLeaveBalance = 21; 
     if (!allRequests) return totalLeaveBalance;
 
     const currentYear = new Date().getFullYear();

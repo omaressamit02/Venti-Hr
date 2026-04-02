@@ -187,10 +187,10 @@ export default function ScannerPage() {
     }, []);
 
     useEffect(() => {
-        const storedProfile = localStorage.getItem('userProfile');
-        if (storedProfile && storedProfile.trim() !== '' && storedProfile !== 'undefined' && storedProfile !== 'null') {
+        const storedProfileStr = localStorage.getItem('userProfile');
+        if (storedProfileStr && storedProfileStr.trim() !== '' && storedProfileStr !== 'undefined' && storedProfileStr !== 'null') {
             try {
-                const parsed = JSON.parse(storedProfile);
+                const parsed = JSON.parse(storedProfileStr);
                 if (parsed && typeof parsed === 'object') {
                     setUserProfile(parsed);
                 }
@@ -309,7 +309,7 @@ export default function ScannerPage() {
             
             if (!id || !locId || !expiry || !signature) throw new Error("تنسيق رمز QR غير صالح.");
             
-            if (Date.now() > (Number(expiry) + 10000)) throw new Error("انتهت صلاحية الرمز. يرجى التحديث.");
+            if (Date.now() > (Number(expiry) + 30000)) throw new Error("انتهت صلاحية الرمز. يرجى التحديث.");
             
             const expectedSig = md5(`${id}|${expiry}|${locId}|${SERVER_SECRET}`);
             if (signature !== expectedSig) throw new Error("رمز غير صالح أو تم التلاعب به.");

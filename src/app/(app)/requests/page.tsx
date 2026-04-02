@@ -91,7 +91,6 @@ export default function EmployeeRequestsPage() {
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
   const [isDialogOpen, setDialogOpen] = useState(false);
 
-  // New Request Form State
   const [requestType, setRequestType] = useState<'leave_full_day' | 'leave_half_day' | 'mission' | 'permission_early' | 'permission_late'>('leave_full_day');
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -101,10 +100,10 @@ export default function EmployeeRequestsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const storedProfile = localStorage.getItem('userProfile');
-    if (storedProfile && storedProfile.trim() !== '' && storedProfile !== 'undefined' && storedProfile !== 'null') {
+    const storedProfileStr = localStorage.getItem('userProfile');
+    if (storedProfileStr && storedProfileStr.trim() !== '' && storedProfileStr !== 'undefined' && storedProfileStr !== 'null') {
         try {
-            const profile = JSON.parse(storedProfile);
+            const profile = JSON.parse(storedProfileStr);
             if (profile && typeof profile === 'object') {
                 setCurrentUserProfile(profile);
                 if (profile.managerId) {
@@ -129,25 +128,19 @@ export default function EmployeeRequestsPage() {
 
   const managers = useMemo<Manager[]>(() => {
     if (!employeesData) return [];
-    
-    // An admin with permissions for requests page is a manager
     const hasRequestsPermission = (permissions: string[] = []) => permissions.includes('/admin/requests');
-
     return Object.entries(employeesData)
         .filter(([id, emp]) => emp.isManager || hasRequestsPermission(emp.permissions))
         .map(([id, emp]) => ({ id, employeeName: emp.employeeName }));
   }, [employeesData]);
 
   useEffect(() => {
-    // If a default manager is not set, and there are managers, select the first one.
     if (!selectedManager && currentUserProfile?.managerId === undefined && managers.length > 0) {
         setSelectedManager(managers[0].id);
     }
-    // if a default manager is set but not in the list (e.g. inactive), select first from list
     if (selectedManager && !managers.some(m => m.id === selectedManager) && managers.length > 0) {
         setSelectedManager(managers[0].id);
     }
-
   }, [managers, selectedManager, currentUserProfile?.managerId]);
 
 
@@ -197,7 +190,6 @@ export default function EmployeeRequestsPage() {
         
         toast({ title: 'تم إرسال طلبك بنجاح' });
         setDialogOpen(false);
-        // Reset form
         setRequestType('leave_full_day');
         const today = format(new Date(), 'yyyy-MM-dd');
         setStartDate(today);
@@ -218,7 +210,7 @@ export default function EmployeeRequestsPage() {
     }
   }, [startDate, requestType]);
 
-  const isLoading = isRequestsLoading || isEmployeesLoading || !currentUserProfile;
+  const isLoadingTotal = isRequestsLoading || isEmployeesLoading || !currentUserProfile;
 
   return (
     <div className="space-y-6">

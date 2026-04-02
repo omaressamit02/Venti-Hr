@@ -34,10 +34,10 @@ const useUserRole = () => {
     const router = useRouter();
 
     useEffect(() => {
-        const storedProfile = localStorage.getItem('userProfile');
-        if (storedProfile && storedProfile.trim() !== '' && storedProfile !== 'undefined' && storedProfile !== 'null') {
+        const storedProfileStr = localStorage.getItem('userProfile');
+        if (storedProfileStr && storedProfileStr.trim() !== '' && storedProfileStr !== 'undefined' && storedProfileStr !== 'null') {
             try {
-                const parsed = JSON.parse(storedProfile);
+                const parsed = JSON.parse(storedProfileStr);
                 if (parsed && typeof parsed === 'object') {
                     setUserProfile(parsed);
                 } else {
