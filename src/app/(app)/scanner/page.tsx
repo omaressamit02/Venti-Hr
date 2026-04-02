@@ -4,10 +4,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { LogIn, LogOut, Loader2, CheckCircle, MapPin, RefreshCw, AlertTriangle, Clock, Camera, Target, History, Calendar as CalendarIcon } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { LogIn, LogOut, Loader2, MapPin, RefreshCw, AlertTriangle, Clock, History, Calendar as CalendarIcon, Target } from 'lucide-react';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
-import { ref, set, update, query, orderByChild, equalTo, get, serverTimestamp as dbServerTimestamp, push, limitToLast } from 'firebase/database';
+import { ref, set, update, query, orderByChild, equalTo, get, push, limitToLast } from 'firebase/database';
 import { md5 } from 'js-md5';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -353,6 +353,13 @@ export default function ScannerPage() {
     }
   }, [isProcessing, qrCodeRequired, qrLocationCheckRequired, location, allLocations, targetLocationData, settings, toast, validateUserAndDevice, processAttendance, userStatus]);
 
+  const locationStatusMessage = () => {
+    if (isRequestingLocation) return "جاري البحث عن أقرب فرع...";
+    if (locationError) return locationError;
+    if (!targetLocationData) return "لم يتم العثور على فروع قريبة منك مسموح لك بها.";
+    return `أنت الآن في ${targetLocationData.name} (تبعد ${Math.round(targetLocationData.distance)}م)`;
+  };
+
   const renderContent = () => {
     if (!userProfile || isSettingsLoading || userStatus === 'loading') {
       return (
@@ -448,20 +455,13 @@ export default function ScannerPage() {
             </div>
             <div className="p-3 bg-muted/50 rounded-lg text-center">
                 <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><Target className="h-3 w-3" /> الحالة</p>
-                <Badge variant={userStatus === 'checked_in' ? "secondary" : "outline"}>
+                <Badge variant={userStatus === 'checked_in' ? "secondary" : "outline"} className="text-sm px-4">
                     {userStatus === 'checked_in' ? "متواجد" : "منصرف"}
                 </Badge>
             </div>
         </div>
       </div>
     );
-  };
-
-  const locationStatusMessage = () => {
-    if (isRequestingLocation) return "جاري البحث عن أقرب فرع...";
-    if (locationError) return locationError;
-    if (!targetLocationData) return "لم يتم العثور على فروع قريبة منك مسموح لك بها.";
-    return `أنت الآن في ${targetLocationData.name} (تبعد ${Math.round(targetLocationData.distance)}م)`;
   };
 
   return (

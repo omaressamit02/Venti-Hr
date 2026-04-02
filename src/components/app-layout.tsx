@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useState, useEffect } from 'react';
-import Link from 'link/link';
+import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   Sidebar,
@@ -22,7 +22,7 @@ import {
 import { ThemeToggle } from './theme-toggle';
 import { navItems } from '@/lib/nav-items';
 import { useAuth, useDb, useDbData, useMemoFirebase } from '@/firebase';
-import { ref } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Settings {

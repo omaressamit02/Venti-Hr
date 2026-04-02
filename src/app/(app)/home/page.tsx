@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Briefcase, Calendar, Clock, UserCheck, UserX } from 'lucide-react';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
 import { ref } from 'firebase/database';
-import { format, getDaysInYear, differenceInDays, startOfYear, endOfYear } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 
 interface UserProfile {
   id: string;

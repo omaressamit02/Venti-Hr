@@ -436,7 +436,7 @@ export default function PayrollPage() {
                 const dayDate = new Date(a.date);
                 const dayOfWeek = getDay(dayDate).toString();
                 // Is this day either a regular off or manually marked as off?
-                return daysOff.includes(dayOfWeek) || a.status === 'weekly_off';
+                return daysOff.includes(dayOfWeek);
             }).length;
             holidayWorkPay = holidayWorkDaysCount * settings.holidayWorkCashAmount;
         }
@@ -487,10 +487,11 @@ export default function PayrollPage() {
   };
   
   const calculatePayable = (item: PayrollItem) => {
-    const totalAdditions = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
-    const totalDeductions = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.permissionDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0);
-    const netSalary = item.baseSalary + totalAdditions - totalDeductions;
-    return { netSalary, totalAdditions, totalDeductions };
+    const { netSalary, totalDeductions, totalAdditions } = calculatePayable(item);
+    const totalAdditionsVal = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
+    const totalDeductionsVal = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.permissionDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0);
+    const netSalaryVal = item.baseSalary + totalAdditionsVal - totalDeductionsVal;
+    return { netSalary: netSalaryVal, totalAdditions: totalAdditionsVal, totalDeductions: totalDeductionsVal };
   }
   
   const handleOpenShareDialog = (item: PayrollItem) => {
