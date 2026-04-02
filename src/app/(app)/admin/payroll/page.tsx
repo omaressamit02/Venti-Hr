@@ -320,7 +320,8 @@ export default function PayrollPage() {
         const minuteRate = hourlyRate / 60;
 
         const employeeAttendance = attendanceData ? Object.values(attendanceData).filter(a => a.employeeId === employee.id) : [];
-        const presentDays = new Set(employeeAttendance.filter(a => a.status === 'present' || !a.status).map(a => a.date));
+        const presentDaysCount = employeeAttendance.filter(a => a.status === 'present' || !a.status).length;
+        const presentDates = new Set(employeeAttendance.filter(a => a.status === 'present' || !a.status).map(a => a.date));
         const manualWeeklyOffDays = new Set(employeeAttendance.filter(a => a.status === 'weekly_off').map(a => a.date));
         
         const totalDelayMinutes = employee.disableDeductions ? 0 : employeeAttendance.reduce((acc, curr) => acc + (curr.delayMinutes || 0), 0);
@@ -358,21 +359,29 @@ export default function PayrollPage() {
             return !daysOff.includes(getDay(day).toString());
         });
 
-        let absenceDays = 0;
-        let incompleteRecords = 0;
-
+        let calendarAbsenceDays = 0;
         workDaysInMonth.forEach(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
-            if (!presentDays.has(dayStr) && !approvedLeaveDays.has(dayStr)) {
-                absenceDays++;
+            if (!presentDates.has(dayStr) && !approvedLeaveDays.has(dayStr)) {
+                calendarAbsenceDays++;
             }
+        });
+
+        let incompleteRecords = 0;
+        workDaysInMonth.forEach(day => {
+            const dayStr = format(day, 'yyyy-MM-dd');
             const record = employeeAttendance.find(r => r.date === dayStr);
             if (record && record.checkIn && !record.checkOut) {
                 incompleteRecords++;
             }
         });
-        const absenceDeductions = absenceDays * (settings.deductionForAbsence || 1) * dailyRate;
-        const incompleteRecordDeductions = incompleteRecords * (settings.deductionForIncompleteRecord || 0.5) * dailyRate;
+
+        // CRITICAL FIX: Absence deductions must NOT exceed the paid days quota (workDaysConfig)
+        const effectiveAbsenceDays = Math.min(calendarAbsenceDays, workDaysConfig);
+        const absenceDeductions = effectiveAbsenceDays * (settings.deductionForAbsence || 1) * dailyRate;
+        
+        const effectiveIncompleteDays = Math.min(incompleteRecords, workDaysConfig);
+        const incompleteRecordDeductions = effectiveIncompleteDays * (settings.deductionForIncompleteRecord || 0.5) * dailyRate;
 
         let delayDeductions = 0;
         let chargeableDelayMinutes = 0;
