@@ -430,7 +430,9 @@ export default function PayrollPage() {
         let holidayWorkPay = 0;
         if (settings.holidayWorkCompensationType === 'cash' && settings.holidayWorkCashAmount) {
             const holidayWorkDaysCount = employeeAttendance.filter(a => {
-                if (a.status !== 'present') return false;
+                const isPresent = a.status === 'present' || (!a.status && a.checkIn);
+                if (!isPresent) return false;
+                
                 const dayDate = new Date(a.date);
                 const dayOfWeek = getDay(dayDate).toString();
                 // Is this day either a regular off or manually marked as off?

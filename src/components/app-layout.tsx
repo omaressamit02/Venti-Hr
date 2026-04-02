@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import Link from 'link/link';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   Sidebar,
@@ -35,9 +35,15 @@ const useUserRole = () => {
 
     useEffect(() => {
         const storedProfile = localStorage.getItem('userProfile');
-        if (storedProfile && storedProfile !== 'undefined') {
+        if (storedProfile && storedProfile.trim() !== '' && storedProfile !== 'undefined' && storedProfile !== 'null') {
             try {
-                setUserProfile(JSON.parse(storedProfile));
+                const parsed = JSON.parse(storedProfile);
+                if (parsed && typeof parsed === 'object') {
+                    setUserProfile(parsed);
+                } else {
+                    localStorage.removeItem('userProfile');
+                    router.push('/');
+                }
             } catch (e) {
                 console.error("Error parsing user profile:", e);
                 localStorage.removeItem('userProfile');

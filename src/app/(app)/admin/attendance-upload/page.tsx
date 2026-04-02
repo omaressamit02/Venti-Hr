@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -73,6 +74,11 @@ export default function AttendanceUploadPage() {
 
 
   const processFileContent = async (content: string) => {
+    if (!content || content.trim() === '') {
+        toast({ variant: 'destructive', title: 'الملف فارغ' });
+        return;
+    }
+
     setIsProcessing(true);
     setPreviewData([]);
 
@@ -84,6 +90,8 @@ export default function AttendanceUploadPage() {
 
     try {
         const sanitizedContent = content.replace(/:\s*([a-zA-Z_][a-zA-Z0-9_]*)/g, ':"$1"');
+        if (!sanitizedContent.trim()) throw new Error("محتوى الملف غير صالح");
+        
         const punches: Punch[] = JSON.parse(sanitizedContent);
         if (!Array.isArray(punches)) {
             throw new Error("ملف JSON غير صالح، يجب أن يحتوي على مصفوفة من السجلات.");

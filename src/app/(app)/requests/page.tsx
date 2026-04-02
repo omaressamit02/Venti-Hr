@@ -105,16 +105,18 @@ export default function EmployeeRequestsPage() {
 
   useEffect(() => {
     const storedProfile = localStorage.getItem('userProfile');
-    if (storedProfile && storedProfile !== 'undefined') {
+    if (storedProfile && storedProfile.trim() !== '' && storedProfile !== 'undefined' && storedProfile !== 'null') {
         try {
             const profile = JSON.parse(storedProfile);
-            setCurrentUserProfile(profile);
-            // Pre-select manager if available
-            if (profile.managerId) {
-                setSelectedManager(profile.managerId);
+            if (profile && typeof profile === 'object') {
+                setCurrentUserProfile(profile);
+                if (profile.managerId) {
+                    setSelectedManager(profile.managerId);
+                }
             }
         } catch (e) {
             console.error("Error parsing profile in Requests", e);
+            localStorage.removeItem('userProfile');
         }
     }
   }, []);

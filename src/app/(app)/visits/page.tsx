@@ -90,11 +90,15 @@ export default function VisitsPage() {
 
   useEffect(() => {
     const storedProfile = localStorage.getItem('userProfile');
-    if (storedProfile && storedProfile !== 'undefined') {
+    if (storedProfile && storedProfile.trim() !== '' && storedProfile !== 'undefined' && storedProfile !== 'null') {
       try {
-        setUserProfile(JSON.parse(storedProfile));
+        const parsed = JSON.parse(storedProfile);
+        if (parsed && typeof parsed === 'object') {
+            setUserProfile(parsed);
+        }
       } catch (e) {
         console.error("Error parsing profile in Visits", e);
+        localStorage.removeItem('userProfile');
       }
     }
     fetchLocation();

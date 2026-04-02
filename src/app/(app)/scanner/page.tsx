@@ -188,11 +188,15 @@ export default function ScannerPage() {
 
     useEffect(() => {
         const storedProfile = localStorage.getItem('userProfile');
-        if (storedProfile && storedProfile !== 'undefined') {
+        if (storedProfile && storedProfile.trim() !== '' && storedProfile !== 'undefined' && storedProfile !== 'null') {
             try {
-                setUserProfile(JSON.parse(storedProfile));
+                const parsed = JSON.parse(storedProfile);
+                if (parsed && typeof parsed === 'object') {
+                    setUserProfile(parsed);
+                }
             } catch (e) {
                 console.error("Error parsing profile in Scanner", e);
+                localStorage.removeItem('userProfile');
             }
         }
         requestLocation();
@@ -290,7 +294,6 @@ export default function ScannerPage() {
     if (isProcessing) return;
     if (qrCodeRequired && !data) return;
 
-    // Standardize data from different versions of react-qr-scanner
     const qrText = typeof data === 'string' ? data : data?.text;
     if (qrCodeRequired && !qrText) return;
 
@@ -301,9 +304,7 @@ export default function ScannerPage() {
         let validatedLocationId = '';
         let validatedLocationName = '';
         
-        // 1. Process QR Data if required
         if (qrCodeRequired && qrText) {
-            // Simplified string format: "id|locId|exp|sig"
             const [id, locId, expiry, signature] = qrText.split('|');
             
             if (!id || !locId || !expiry || !signature) throw new Error("تنسيق رمز QR غير صالح.");
@@ -320,7 +321,6 @@ export default function ScannerPage() {
             validatedLocationName = targetLocation.name;
         }
 
-        // 2. Location Check
         let currentDistance = null;
         if (qrLocationCheckRequired || !qrCodeRequired) {
             if (!location) throw new Error("يرجى تفعيل GPS أولاً للسماح بالتحقق من تواجدك.");
