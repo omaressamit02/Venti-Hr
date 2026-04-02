@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -39,6 +40,7 @@ interface Employee {
   employeeName: string;
   employeeCode: string;
   salary: number;
+  workDaysPerMonth?: number;
 }
 
 interface AttendanceRecord {
@@ -58,6 +60,7 @@ interface PayrollItem {
     employeeName: string;
     employeeCode: string;
     baseSalary: number;
+    workDaysPerMonth: number;
     totalDelayMinutes: number;
     delayDeductions: number;
     bonus: number;
@@ -118,7 +121,11 @@ export default function PayrollPage() {
         );
         
         const totalDelayMinutes = employeeAttendance.reduce((acc, curr) => acc + (curr.delayMinutes || 0), 0);
-        const hourlyRate = employee.salary / (30 * 8); // Assuming 30 days, 8 hours/day
+        
+        // CRITICAL: Divider is customized per employee
+        const dailyRate = (employee.salary || 0) / (employee.workDaysPerMonth || 30);
+        const hourlyRate = dailyRate / 8; // Assuming 8 hours/day
+        
         const delayDeductions = (totalDelayMinutes / 60) * hourlyRate * DEDUCTION_RATE_PER_HOUR;
         
         const employeeTransactions = transactionsData[employeeId] ? Object.values(transactionsData[employeeId]) : [];
@@ -132,6 +139,7 @@ export default function PayrollPage() {
             employeeName: employee.employeeName,
             employeeCode: employee.employeeCode,
             baseSalary: employee.salary,
+            workDaysPerMonth: employee.workDaysPerMonth || 30,
             totalDelayMinutes,
             delayDeductions,
             bonus,
