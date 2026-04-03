@@ -178,15 +178,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </Sidebar>
         <SidebarInset>
           <header className="flex items-center justify-between p-3 bg-card border-b sticky top-0 z-30">
-              <div className='flex items-center gap-2'>
-                  <SidebarTrigger className="md:hidden" />
-                  <ThemeToggle />
+              <div className='flex items-center gap-4'>
+                  <SidebarTrigger />
+                  <h2 className="hidden md:block font-bold text-lg font-headline">
+                    {isClient ? (currentPage?.label || 'الشاشة الرئيسية') : '...'}
+                  </h2>
               </div>
-              <div className="flex items-center gap-4">
-                 <h2 className="hidden md:block font-bold text-lg font-headline">
-                  {isClient ? (currentPage?.label || 'الشاشة الرئيسية') : '...'}
-                </h2>
-                <SidebarTrigger className="hidden md:flex" />
+              <div className="flex items-center gap-2">
+                 <ThemeToggle />
               </div>
           </header>
           <main className="flex-1 p-4 md:p-6 lg:p-8 bg-background">

@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
@@ -157,8 +156,8 @@ interface PayslipProps {
 // ---------------- Helper Components ----------------
 
 function Payslip({ item, month, payable, companyName, formatCurrency }: PayslipProps) {
-    const totalAdditions = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
-    const totalDeductions = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0) + item.permissionDeductions;
+    const totalAdditionsVal = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
+    const totalDeductionsVal = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.permissionDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0);
     
     return (
         <div className="p-8 bg-white text-black font-sans text-sm" dir="rtl">
@@ -210,7 +209,7 @@ function Payslip({ item, month, payable, companyName, formatCurrency }: PayslipP
                         </div>
                         <div className="flex justify-between font-bold text-lg mt-4 pt-2 border-t">
                             <span>إجمالي الاستحقاقات</span>
-                            <span className="font-mono">{formatCurrency(item.baseSalary + totalAdditions)}</span>
+                            <span className="font-mono">{formatCurrency(item.baseSalary + totalAdditionsVal)}</span>
                         </div>
                     </div>
 
@@ -233,7 +232,7 @@ function Payslip({ item, month, payable, companyName, formatCurrency }: PayslipP
                         </div>
                          <div className="flex justify-between font-bold text-lg mt-4 pt-2 border-t">
                             <span>إجمالي الاستقطاعات</span>
-                            <span className="font-mono">{formatCurrency(totalDeductions)}</span>
+                            <span className="font-mono">{formatCurrency(totalDeductionsVal)}</span>
                         </div>
                     </div>
                 </section>
