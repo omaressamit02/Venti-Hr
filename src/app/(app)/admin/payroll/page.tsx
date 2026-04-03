@@ -34,7 +34,7 @@ import {
     DialogTrigger,
     DialogFooter,
 } from '@/components/ui/dialog';
-import { Calculator, CheckCircle, DollarSign, Send, FileSpreadsheet, Printer, Loader2, Info, Share2, Eye, CalendarDays } from 'lucide-react';
+import { Calculator, CheckCircle, DollarSign, Send, FileSpreadsheet, Printer, Loader2, Info, Share2, Eye, CalendarDays, UserCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
@@ -123,6 +123,7 @@ interface PayrollItem {
     employeeCode: string;
     baseSalary: number;
     workDaysPerMonth: number;
+    presentDaysCount: number;
     totalDelayMinutes: number;
     chargeableDelayMinutes: number;
     delayDeductions: number;
@@ -199,6 +200,7 @@ export function Payslip({ item, month, payable, companyName, formatCurrency }: P
                         <div><span className="font-semibold">اسم الموظف:</span> {item.employeeName}</div>
                         <div><span className="font-semibold">الكود الوظيفي:</span> {item.employeeCode}</div>
                         <div><span className="font-semibold">أيام العمل المحددة:</span> {item.workDaysPerMonth} يوم</div>
+                        <div><span className="font-semibold">أيام الحضور الفعلي:</span> {item.presentDaysCount} يوم</div>
                     </div>
                 </section>
 
@@ -455,6 +457,7 @@ export default function PayrollPage() {
             employeeCode: employee.employeeCode,
             baseSalary: employee.salary,
             workDaysPerMonth: workDaysConfig,
+            presentDaysCount: presentDates.size,
             totalDelayMinutes,
             chargeableDelayMinutes,
             delayDeductions,
@@ -505,7 +508,7 @@ export default function PayrollPage() {
     const formatValue = (value: number) => `${formatCurrency(value)} ج.م`;
 
     let message = `*كشف راتب شهر ${monthName}*\n\n`;
-    message += `*بيانات الموظف*\n*الاسم:* ${item.employeeName}\n*الكود:* ${item.employeeCode}\n*أيام العمل:* ${item.workDaysPerMonth} يوم\n\n`;
+    message += `*بيانات الموظف*\n*الاسم:* ${item.employeeName}\n*الكود:* ${item.employeeCode}\n*أيام الحضور:* ${item.presentDaysCount} يوم\n*أيام العمل المقررة:* ${item.workDaysPerMonth} يوم\n\n`;
     message += `---------------------\n\n`;
     message += `*الاستحقاقات*\nالراتب الأساسي: ${formatValue(item.baseSalary)}\n`;
     if (item.bonus > 0) message += `مكافآت: ${formatValue(item.bonus)}\n`;
@@ -578,6 +581,7 @@ export default function PayrollPage() {
                 <TableHeader>
                 <TableRow>
                     <TableHead className="text-right">اسم الموظف</TableHead>
+                    <TableHead className="text-right">أيام الحضور</TableHead>
                     <TableHead className="text-right">أيام العمل</TableHead>
                     <TableHead className="text-left">الراتب الأساسي</TableHead>
                     <TableHead className="text-left">الإضافات</TableHead>
@@ -588,13 +592,19 @@ export default function PayrollPage() {
                 </TableHeader>
                 <TableBody>
                 {isLoading && !isCalculating ? (
-                    Array.from({length: 3}).map((_, i) => <TableRow key={`loading-row-${i}`}><TableCell colSpan={7}><Skeleton className="h-10 w-full"/></TableCell></TableRow>)
+                    Array.from({length: 3}).map((_, i) => <TableRow key={`loading-row-${i}`}><TableCell colSpan={8}><Skeleton className="h-10 w-full"/></TableCell></TableRow>)
                 ) : payrollData.length > 0 ? (
                     payrollData.map((item) => {
                         const { netSalary, totalAdditions, totalDeductions } = calculateDisplayValues(item);
                         return (
                             <TableRow key={item.employeeId}>
                                 <TableCell className="text-right font-medium">{item.employeeName}</TableCell>
+                                <TableCell className="text-right">
+                                    <div className='flex items-center gap-1 justify-end font-bold text-blue-600'>
+                                        <UserCheck className='h-3 w-3'/>
+                                        {item.presentDaysCount} يوم
+                                    </div>
+                                </TableCell>
                                 <TableCell className="text-right">
                                     <div className='flex items-center gap-1 justify-end'>
                                         <CalendarDays className='h-3 w-3 text-muted-foreground'/>
@@ -619,7 +629,7 @@ export default function PayrollPage() {
                         )
                     })
                 ) : (
-                    <TableRow><TableCell colSpan={7} className="h-24 text-center">لا توجد بيانات للعرض.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="h-24 text-center">لا توجد بيانات للعرض.</TableCell></TableRow>
                 )}
                 </TableBody>
             </Table>
@@ -639,7 +649,11 @@ export default function PayrollPage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-4 pt-0 space-y-2 text-sm">
-                            <div className="flex justify-between"><span>أيام العمل:</span><span>{item.workDaysPerMonth} يوم</span></div>
+                            <div className="flex justify-between items-center bg-blue-50 dark:bg-blue-900/20 p-1 rounded">
+                                <span className="font-semibold text-blue-700 dark:text-blue-300">أيام الحضور:</span>
+                                <span className="font-bold text-blue-700 dark:text-blue-300">{item.presentDaysCount} يوم</span>
+                            </div>
+                            <div className="flex justify-between"><span>أيام العمل المقررة:</span><span>{item.workDaysPerMonth} يوم</span></div>
                             <div className="flex justify-between"><span>الأساسي:</span><span className="font-mono">{formatCurrency(item.baseSalary)}</span></div>
                             <div className="flex justify-between text-green-600"><span>الإضافات:</span><span className="font-mono">+{formatCurrency(totalAdditions)}</span></div>
                             <div className="flex justify-between text-destructive"><span>الخصومات:</span><span className="font-mono">-{formatCurrency(totalDeductions)}</span></div>
