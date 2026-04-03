@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
@@ -154,17 +155,9 @@ interface PayslipProps {
     formatCurrency: (amount: number) => string | number;
 }
 
-// ---------------- Helper Calculation (No Recursion) ----------------
+// ---------------- Helper Components ----------------
 
-const getCalculatedPayable = (item: PayrollItem) => {
-    const totalAdditions = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
-    const totalDeductions = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.permissionDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0);
-    return item.baseSalary + totalAdditions - totalDeductions;
-};
-
-// ---------------- Payslip Component ----------------
-
-export function Payslip({ item, month, payable, companyName, formatCurrency }: PayslipProps) {
+function Payslip({ item, month, payable, companyName, formatCurrency }: PayslipProps) {
     const totalAdditions = item.bonus + item.holidayWorkPay + item.fixedAdditions.reduce((acc, add) => acc + add.amount, 0);
     const totalDeductions = item.delayDeductions + item.earlyLeaveDeductions + item.absenceDeductions + item.approvedLeaveDeductions + item.incompleteRecordDeductions + item.penalty + item.loanDeduction + item.salaryAdvanceDeductions + item.fixedDeductions.reduce((acc, ded) => acc + ded.amount, 0) + item.permissionDeductions;
     
@@ -205,7 +198,6 @@ export function Payslip({ item, month, payable, companyName, formatCurrency }: P
                 </section>
 
                 <section className="my-6 grid grid-cols-2 gap-8">
-                     {/* Earnings */}
                     <div>
                         <h2 className="text-lg font-bold mb-2 pb-1 border-b">الاستحقاقات</h2>
                         <div className="space-y-2">
@@ -222,7 +214,6 @@ export function Payslip({ item, month, payable, companyName, formatCurrency }: P
                         </div>
                     </div>
 
-                    {/* Deductions */}
                     <div>
                         <h2 className="text-lg font-bold mb-2 pb-1 border-b">الاستقطاعات</h2>
                         <div className="space-y-2">
@@ -329,14 +320,20 @@ export default function PayrollPage() {
         const minuteRate = hourlyRate / 60;
 
         const employeeAttendance = attendanceData ? Object.values(attendanceData).filter(a => a.employeeId === employee.id) : [];
-        const presentDates = new Set(employeeAttendance.filter(a => a.status === 'present' || !a.status).map(a => a.date));
-        const manualWeeklyOffDays = new Set(employeeAttendance.filter(a => a.status === 'weekly_off').map(a => a.date));
+        const presentDates = new Set(employeeAttendance.filter(a => a.status === 'present' || (!a.status && a.checkIn)).map(a => a.date));
         
         const totalDelayMinutes = employee.disableDeductions ? 0 : employeeAttendance.reduce((acc, curr) => acc + (curr.delayMinutes || 0), 0);
         const totalEarlyLeaveMinutes = employee.disableDeductions ? 0 : employeeAttendance.reduce((acc, curr) => acc + (curr.earlyLeaveMinutes || 0), 0);
 
         const employeeRequests = requestsData?.[employee.id] ? Object.values(requestsData[employee.id]) : [];
-        const approvedLeaveDays = new Set<string>();
+        const approvedLeaveDaysCount = employeeRequests.reduce((acc, req) => {
+            if (req.status === 'approved' && req.requestType.startsWith('leave')) {
+                const interval = eachDayOfInterval({ start: new Date(req.startDate), end: new Date(req.endDate) });
+                return acc + interval.filter(d => isSameMonth(d, monthDate)).length;
+            }
+            return acc;
+        }, 0);
+
         let approvedEarlyLeavePermissionHours = 0;
         let approvedLateArrivalPermissionMinutes = 0;
         
@@ -345,9 +342,6 @@ export default function PayrollPage() {
                 const reqDate = new Date(req.startDate);
                 if (reqDate.getMonth() !== monthStart.getMonth() || reqDate.getFullYear() !== monthStart.getFullYear()) return;
 
-                if (req.requestType.startsWith('leave')) {
-                    eachDayOfInterval({ start: new Date(req.startDate), end: new Date(req.endDate) }).forEach(day => approvedLeaveDays.add(format(day, 'yyyy-MM-dd')));
-                }
                 if (req.requestType === 'permission_early' && req.durationHours) {
                     approvedEarlyLeavePermissionHours += req.durationHours;
                 }
@@ -358,38 +352,15 @@ export default function PayrollPage() {
         });
         const permissionDeductions = approvedEarlyLeavePermissionHours * hourlyRate;
 
-        const daysOff = employee.daysOff || [];
-        const daysInMonthInterval = eachDayOfInterval({ start: monthStart, end: monthEnd });
+        // CRITICAL FIX: Absence logic for limited work days
+        // We only deduct if the employee worked less than their quota
+        const presentDaysCount = presentDates.size;
+        const missingDaysFromQuota = Math.max(0, workDaysConfig - presentDaysCount - approvedLeaveDaysCount);
         
-        const workDaysInMonth = daysInMonthInterval.filter(day => {
-            const dayStr = format(day, 'yyyy-MM-dd');
-            if (manualWeeklyOffDays.has(dayStr)) return false;
-            return !daysOff.includes(getDay(day).toString());
-        });
-
-        let calendarAbsenceDays = 0;
-        workDaysInMonth.forEach(day => {
-            const dayStr = format(day, 'yyyy-MM-dd');
-            if (!presentDates.has(dayStr) && !approvedLeaveDays.has(dayStr)) {
-                calendarAbsenceDays++;
-            }
-        });
-
-        let incompleteRecords = 0;
-        workDaysInMonth.forEach(day => {
-            const dayStr = format(day, 'yyyy-MM-dd');
-            const record = employeeAttendance.find(r => r.date === dayStr);
-            if (record && record.checkIn && !record.checkOut) {
-                incompleteRecords++;
-            }
-        });
-
-        // CRITICAL FIX: Absence deductions must NOT exceed the working days quota
-        const effectiveAbsenceDays = Math.min(calendarAbsenceDays, workDaysConfig);
-        const absenceDeductions = effectiveAbsenceDays * (settings.deductionForAbsence || 1) * dailyRate;
+        const absenceDeductions = missingDaysFromQuota * (settings.deductionForAbsence || 1) * dailyRate;
         
-        const effectiveIncompleteDays = Math.min(incompleteRecords, workDaysConfig);
-        const incompleteRecordDeductions = effectiveIncompleteDays * (settings.deductionForIncompleteRecord || 0.5) * dailyRate;
+        let incompleteRecords = employeeAttendance.filter(r => r.checkIn && !r.checkOut).length;
+        const incompleteRecordDeductions = incompleteRecords * (settings.deductionForIncompleteRecord || 0.5) * dailyRate;
 
         let delayDeductions = 0;
         let chargeableDelayMinutes = 0;
@@ -441,6 +412,7 @@ export default function PayrollPage() {
 
         let holidayWorkPay = 0;
         if (settings.holidayWorkCompensationType === 'cash' && settings.holidayWorkCashAmount) {
+            const daysOff = employee.daysOff || [];
             const holidayWorkDaysCount = employeeAttendance.filter(a => {
                 const isPresent = a.status === 'present' || (!a.status && a.checkIn);
                 if (!isPresent) return false;
@@ -457,7 +429,7 @@ export default function PayrollPage() {
             employeeCode: employee.employeeCode,
             baseSalary: employee.salary,
             workDaysPerMonth: workDaysConfig,
-            presentDaysCount: presentDates.size,
+            presentDaysCount: presentDaysCount,
             totalDelayMinutes,
             chargeableDelayMinutes,
             delayDeductions,
@@ -540,6 +512,11 @@ export default function PayrollPage() {
   const payslipRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({ content: () => payslipRef.current });
   const [selectedPayslip, setSelectedPayslip] = useState<{item: PayrollItem, payable: number} | null>(null);
+
+  // Helper for isSameMonth check
+  function isSameMonth(d1: Date, d2: Date) {
+      return d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
+  }
 
   return (
     <div className="space-y-6">
