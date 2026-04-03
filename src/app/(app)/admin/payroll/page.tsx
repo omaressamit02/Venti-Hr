@@ -35,14 +35,14 @@ import {
     DialogTrigger,
     DialogFooter,
 } from '@/components/ui/dialog';
-import { Calculator, CheckCircle, DollarSign, Send, FileSpreadsheet, Printer, Loader2, Info, Share2, Eye, CalendarDays, UserCheck } from 'lucide-react';
+import { Calculator, CheckCircle, DollarSign, Send, FileSpreadsheet, Printer, Loader2, Info, Share2, Eye, CalendarDays, UserCheck, Plane } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
 import { ref, set, get, update } from 'firebase/database';
 import { Skeleton } from '@/components/ui/skeleton';
 import * as XLSX from 'xlsx';
-import { format, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, differenceInHours } from 'date-fns';
+import { format, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, differenceInHours, isSameMonth } from 'date-fns';
 import { useReactToPrint } from 'react-to-print';
 import { arEG } from 'date-fns/locale';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -125,6 +125,7 @@ interface PayrollItem {
     baseSalary: number;
     workDaysPerMonth: number;
     presentDaysCount: number;
+    approvedLeaveDaysCount: number;
     totalDelayMinutes: number;
     chargeableDelayMinutes: number;
     delayDeductions: number;
@@ -141,8 +142,6 @@ interface PayrollItem {
     salaryAdvanceDeductions: number;
     paid: boolean;
     locationName: string;
-    appliedDelayRule?: string;
-    appliedEarlyLeaveRule?: string;
     fixedDeductions: { name: string; amount: number }[];
     fixedAdditions: { name: string; amount: number }[];
 }
@@ -194,6 +193,7 @@ function Payslip({ item, month, payable, companyName, formatCurrency }: PayslipP
                         <div><span className="font-semibold">الكود الوظيفي:</span> {item.employeeCode}</div>
                         <div><span className="font-semibold">أيام العمل المحددة:</span> {item.workDaysPerMonth} يوم</div>
                         <div><span className="font-semibold">أيام الحضور الفعلي:</span> {item.presentDaysCount} يوم</div>
+                        <div><span className="font-semibold">إجازات معتمدة:</span> {item.approvedLeaveDaysCount} يوم</div>
                     </div>
                 </section>
 
@@ -305,13 +305,12 @@ export default function PayrollPage() {
     
     const monthDate = new Date(selectedMonth + "-02T00:00:00");
     const monthStart = startOfMonth(monthDate);
-    const monthEnd = endOfMonth(monthDate);
 
     const allEmployees: Employee[] = Object.entries(employeesData).map(([id, employee]) => ({ ...employee, id }));
 
     const newPayrollData: PayrollItem[] = allEmployees.map(employee => {
-        const workDaysConfig = employee.workDaysPerMonth || 30;
-        const dailyRate = employee.salary / workDaysConfig;
+        const workDaysQuota = employee.workDaysPerMonth || 30;
+        const dailyRate = employee.salary / workDaysQuota;
         
         const workHoursPerDay = settings.workStartTime && settings.workEndTime 
             ? Math.max(1, differenceInHours(new Date(`1970-01-01T${settings.workEndTime}`), new Date(`1970-01-01T${settings.workStartTime}`)))
@@ -352,10 +351,9 @@ export default function PayrollPage() {
         });
         const permissionDeductions = approvedEarlyLeavePermissionHours * hourlyRate;
 
-        // CRITICAL FIX: Absence logic for limited work days
-        // We only deduct if the employee worked less than their quota
+        // CRITICAL: Calculate missing days strictly from defined quota
         const presentDaysCount = presentDates.size;
-        const missingDaysFromQuota = Math.max(0, workDaysConfig - presentDaysCount - approvedLeaveDaysCount);
+        const missingDaysFromQuota = Math.max(0, workDaysQuota - presentDaysCount - approvedLeaveDaysCount);
         
         const absenceDeductions = missingDaysFromQuota * (settings.deductionForAbsence || 1) * dailyRate;
         
@@ -428,8 +426,9 @@ export default function PayrollPage() {
             employeeName: employee.employeeName,
             employeeCode: employee.employeeCode,
             baseSalary: employee.salary,
-            workDaysPerMonth: workDaysConfig,
+            workDaysPerMonth: workDaysQuota,
             presentDaysCount: presentDaysCount,
+            approvedLeaveDaysCount: approvedLeaveDaysCount,
             totalDelayMinutes,
             chargeableDelayMinutes,
             delayDeductions,
@@ -480,7 +479,7 @@ export default function PayrollPage() {
     const formatValue = (value: number) => `${formatCurrency(value)} ج.م`;
 
     let message = `*كشف راتب شهر ${monthName}*\n\n`;
-    message += `*بيانات الموظف*\n*الاسم:* ${item.employeeName}\n*الكود:* ${item.employeeCode}\n*أيام الحضور:* ${item.presentDaysCount} يوم\n*أيام العمل المقررة:* ${item.workDaysPerMonth} يوم\n\n`;
+    message += `*بيانات الموظف*\n*الاسم:* ${item.employeeName}\n*الكود:* ${item.employeeCode}\n*أيام الحضور:* ${item.presentDaysCount} يوم\n*إجازات معتمدة:* ${item.approvedLeaveDaysCount} يوم\n*أيام العمل المقررة:* ${item.workDaysPerMonth} يوم\n\n`;
     message += `---------------------\n\n`;
     message += `*الاستحقاقات*\nالراتب الأساسي: ${formatValue(item.baseSalary)}\n`;
     if (item.bonus > 0) message += `مكافآت: ${formatValue(item.bonus)}\n`;
@@ -512,11 +511,6 @@ export default function PayrollPage() {
   const payslipRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({ content: () => payslipRef.current });
   const [selectedPayslip, setSelectedPayslip] = useState<{item: PayrollItem, payable: number} | null>(null);
-
-  // Helper for isSameMonth check
-  function isSameMonth(d1: Date, d2: Date) {
-      return d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
-  }
 
   return (
     <div className="space-y-6">
@@ -558,9 +552,9 @@ export default function PayrollPage() {
                 <TableHeader>
                 <TableRow>
                     <TableHead className="text-right">اسم الموظف</TableHead>
-                    <TableHead className="text-right">أيام الحضور</TableHead>
+                    <TableHead className="text-right">الحضور / الإجازات</TableHead>
                     <TableHead className="text-right">أيام العمل</TableHead>
-                    <TableHead className="text-left">الراتب الأساسي</TableHead>
+                    <TableHead className="text-left">الأساسي</TableHead>
                     <TableHead className="text-left">الإضافات</TableHead>
                     <TableHead className="text-left">الخصومات</TableHead>
                     <TableHead className="font-bold text-primary text-left">المبلغ المستحق</TableHead>
@@ -577,9 +571,17 @@ export default function PayrollPage() {
                             <TableRow key={item.employeeId}>
                                 <TableCell className="text-right font-medium">{item.employeeName}</TableCell>
                                 <TableCell className="text-right">
-                                    <div className='flex items-center gap-1 justify-end font-bold text-blue-600'>
-                                        <UserCheck className='h-3 w-3'/>
-                                        {item.presentDaysCount} يوم
+                                    <div className='space-y-1'>
+                                        <div className='flex items-center gap-1 justify-end font-bold text-blue-600'>
+                                            <UserCheck className='h-3 w-3'/>
+                                            {item.presentDaysCount} حضور
+                                        </div>
+                                        {item.approvedLeaveDaysCount > 0 && (
+                                            <div className='flex items-center gap-1 justify-end font-medium text-amber-600'>
+                                                <Plane className='h-3 w-3'/>
+                                                {item.approvedLeaveDaysCount} إجازة
+                                            </div>
+                                        )}
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-right">
@@ -588,9 +590,9 @@ export default function PayrollPage() {
                                         {item.workDaysPerMonth} يوم
                                     </div>
                                 </TableCell>
-                                <TableCell className="text-left font-mono">{formatCurrency(item.baseSalary)} ج.م</TableCell>
-                                <TableCell className="text-green-600 text-left font-mono">{formatCurrency(totalAdditions)} ج.م</TableCell>
-                                <TableCell className="text-destructive text-left font-mono">{formatCurrency(totalDeductions)} ج.م</TableCell>
+                                <TableCell className="text-left font-mono">{formatCurrency(item.baseSalary)}</TableCell>
+                                <TableCell className="text-green-600 text-left font-mono">{formatCurrency(totalAdditions)}</TableCell>
+                                <TableCell className="text-destructive text-left font-mono">{formatCurrency(totalDeductions)}</TableCell>
                                 <TableCell className="font-bold text-primary text-left font-mono">{formatCurrency(netSalary)} ج.م</TableCell>
                                 <TableCell className="text-center">
                                     <div className="flex items-center justify-center gap-1">
@@ -631,6 +633,7 @@ export default function PayrollPage() {
                                 <span className="font-bold text-blue-700 dark:text-blue-300">{item.presentDaysCount} يوم</span>
                             </div>
                             <div className="flex justify-between"><span>أيام العمل المقررة:</span><span>{item.workDaysPerMonth} يوم</span></div>
+                            {item.approvedLeaveDaysCount > 0 && <div className="flex justify-between text-amber-600"><span>إجازات معتمدة:</span><span>{item.approvedLeaveDaysCount} يوم</span></div>}
                             <div className="flex justify-between"><span>الأساسي:</span><span className="font-mono">{formatCurrency(item.baseSalary)}</span></div>
                             <div className="flex justify-between text-green-600"><span>الإضافات:</span><span className="font-mono">+{formatCurrency(totalAdditions)}</span></div>
                             <div className="flex justify-between text-destructive"><span>الخصومات:</span><span className="font-mono">-{formatCurrency(totalDeductions)}</span></div>
@@ -670,7 +673,7 @@ export default function PayrollPage() {
                            <Payslip item={selectedPayslip.item} month={selectedMonth} payable={selectedPayslip.payable} companyName={settings?.companyName} formatCurrency={formatCurrency} />
                         </div>
                         <div className="p-4 border-t flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => setSelectedPayslip(null)}>إغلاق</Button>
+                            <Button variant="outline" onClick={() => setSelectedPayslip(null)}>إإغلاق</Button>
                             <Button onClick={handlePrint}><Printer className="ml-2 h-4 w-4"/>طباعة</Button>
                         </div>
                     </>
