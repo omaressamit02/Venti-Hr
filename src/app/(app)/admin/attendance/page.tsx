@@ -29,9 +29,19 @@ import {
     DialogFooter,
     DialogClose,
 } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Filter, Hourglass, MoreVertical, Trash2, Undo, CheckCircle, XCircle, Clock, MapPin, ChevronLeft, ChevronRight, AlertTriangle, Wallet, ChevronsUpDown, Check, LogOut, LogIn, PlusCircle, Calendar as CalendarIcon } from 'lucide-react';
+import { Filter, Hourglass, MoreVertical, Trash2, Undo, CheckCircle, XCircle, Clock, MapPin, ChevronLeft, ChevronRight, AlertTriangle, Wallet, ChevronsUpDown, Check, LogOut, LogIn, PlusCircle, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
 import { ref, update, push, set, remove } from 'firebase/database';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -52,7 +62,7 @@ import { arEG } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandList, CommandItem } from '@/components/ui/command';
 import { Checkbox } from '@/components/ui/checkbox';
 
 
@@ -140,6 +150,9 @@ export default function AttendancePage() {
   });
   const [isOvertimeDialogOpen, setIsOvertimeDialogOpen] = useState(false);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedRecordForOvertime, setSelectedRecordForOvertime] = useState<AttendanceRecord | null>(null);
   const [overtimeInputValue, setOvertimeInputValue] = useState('');
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily');
@@ -422,19 +435,14 @@ export default function AttendancePage() {
   const handleAttendanceAction = async (recordId: string, action: 'forgive_delay' | 'mark_absent' | 'revert' | 'cancel_checkout' | 'set_weekly_off' | 'delete_record') => {
       if (!db) return;
       
+      if (action === 'delete_record') {
+          setRecordToDelete(recordId);
+          setIsDeleteDialogOpen(true);
+          return;
+      }
+
       const originalRecord = allAttendanceRecords.find(r => r.id === recordId);
       const recordRef = ref(db, `attendance/${selectedMonth}/${recordId}`);
-
-      if (action === 'delete_record') {
-          try {
-              await remove(recordRef);
-              toast({ title: 'تم حذف السجل بنجاح' });
-              return;
-          } catch (error) {
-              toast({ variant: 'destructive', title: 'فشل حذف السجل' });
-              return;
-          }
-      }
 
       let updates: any = {};
 
@@ -500,6 +508,22 @@ export default function AttendancePage() {
       }
   };
 
+  const confirmDeleteRecord = async () => {
+      if (!db || !recordToDelete) return;
+      setIsDeleting(true);
+      try {
+          const recordRef = ref(db, `attendance/${selectedMonth}/${recordToDelete}`);
+          await remove(recordRef);
+          toast({ title: 'تم حذف السجل بنجاح' });
+          setIsDeleteDialogOpen(false);
+          setRecordToDelete(null);
+      } catch (error) {
+          toast({ variant: 'destructive', title: 'فشل حذف السجل' });
+      } finally {
+          setIsDeleting(false);
+      }
+  };
+
   const handleAddManualEntry = async () => {
       if (!db || !manualEntry.employeeId) {
           toast({ variant: 'destructive', title: 'بيانات ناقصة' });
@@ -525,11 +549,10 @@ export default function AttendancePage() {
           checkOutIso = new Date(`${manualEntry.date}T${manualEntry.checkOut}`).toISOString();
           
           const officialStart = (employee?.shiftConfiguration === 'custom' && employee.checkInTime) || settings?.workStartTime || '08:00';
-          const [offH, offM] = officialStart.split(':').map(Number);
-          const workStart = new Date(`${manualEntry.date}T${officialStart}`);
+          const workStartToday = new Date(`${manualEntry.date}T${officialStart}`);
           const actualStart = new Date(checkInIso);
-          if (actualStart > workStart) {
-              delayMinutes = Math.floor((actualStart.getTime() - workStart.getTime()) / 60000);
+          if (actualStart > workStartToday) {
+              delayMinutes = Math.floor((actualStart.getTime() - workStartToday.getTime()) / 60000);
           }
       }
 
@@ -1131,9 +1154,10 @@ export default function AttendancePage() {
                     <Select value={manualEntry.employeeId} onValueChange={(val) => setManualEntry(prev => ({...prev, employeeId: val}))}>
                         <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
                         <SelectContent>
-                            {employeesList.map(emp => (
-                                <SelectItem key={emp.id} value={emp.id}>{emp.employeeName}</SelectItem>
-                            ))}
+                            {employeesList.map((empName, idx) => {
+                                const empId = Array.from(employeesMap.keys())[idx];
+                                return <SelectItem key={empId} value={empId}>{empName as any}</SelectItem>
+                            })}
                         </SelectContent>
                     </Select>
                 </div>
@@ -1171,6 +1195,24 @@ export default function AttendancePage() {
             </DialogFooter>
         </DialogContent>
     </Dialog>
+
+    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>تنبيه: هل أنت متأكد من الحذف؟</AlertDialogTitle>
+                <AlertDialogDescription>
+                    سيتم حذف سجل الحضور هذا نهائياً من النظام. لا يمكن التراجع عن هذا الإجراء.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setRecordToDelete(null)}>إلغاء</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDeleteRecord} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeleting}>
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Trash2 className="h-4 w-4 ml-2" />}
+                    تأكيد الحذف النهائي
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
