@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -178,9 +179,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </Sidebar>
         <SidebarInset>
           <header className="flex items-center justify-between p-3 bg-card border-b sticky top-0 z-30">
-              <div className='flex items-center gap-4'>
-                  <SidebarTrigger />
-                  <h2 className="hidden md:block font-bold text-lg font-headline">
+              <div className='flex items-center'>
+                  <SidebarTrigger className="ml-2" />
+                  <h2 className="hidden md:block font-bold text-lg font-headline mr-2">
                     {isClient ? (currentPage?.label || 'الشاشة الرئيسية') : '...'}
                   </h2>
               </div>

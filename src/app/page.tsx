@@ -142,19 +142,10 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!userLocation) {
-        toast({
-            variant: 'destructive',
-            title: 'الموقع مطلوب',
-            description: 'يجب السماح بالوصول إلى الموقع لتسجيل الدخول.',
-        });
-        return;
-    }
-    
     setIsLoading(true);
 
     try {
-      // Superuser check
+      // 1. Superuser check FIRST (Exempt from location)
       if (employeeCode === 'admin' && password === '203040') {
         const superuserProfile = {
           id: 'superuser',
@@ -165,13 +156,24 @@ export default function LoginPage() {
         localStorage.setItem('userProfile', JSON.stringify(superuserProfile));
         toast({
           title: 'أهلاً بك أيها المدير الخارق',
-          description: 'تم تسجيل الدخول بصلاحيات كاملة.',
+          description: 'تم تسجيل الدخول بصلاحيات كاملة وبدون قيود الموقع.',
         });
         
         logLoginAttempt({ employeeCode, status: 'success', employeeName: 'Super Admin' });
         router.push('/home');
         setIsLoading(false);
         return;
+      }
+
+      // 2. Regular users require location
+      if (!userLocation) {
+          toast({
+              variant: 'destructive',
+              title: 'الموقع مطلوب',
+              description: 'يجب السماح بالوصول إلى الموقع لتسجيل الدخول كأحد الموظفين.',
+          });
+          setIsLoading(false);
+          return;
       }
 
       if (isDbLoading || !employeesData) {
@@ -305,7 +307,7 @@ export default function LoginPage() {
 
   return (
     <main className="flex items-center justify-center min-h-screen bg-background p-4">
-      <Card className="w-full max-w-sm mx-auto shadow-2xl bg-card">
+      <Card className="w-full max-sm mx-auto shadow-2xl bg-card">
         <CardHeader className="text-center space-y-2">
           {isSettingsLoading ? <Skeleton className="h-10 w-48 mx-auto" /> : (
             <CardTitle className="text-4xl font-headline text-primary">
@@ -349,22 +351,28 @@ export default function LoginPage() {
                         </AlertDescription>
                     </Alert>
                 ) : locationError ? (
-                     <Alert variant="destructive">
+                     <Alert variant={employeeCode === 'admin' ? "default" : "destructive"}>
                         <AlertDescription className="text-center">
-                            {locationError}
+                            {employeeCode === 'admin' ? "سيتم تجاوز الموقع للمدير" : locationError}
                         </AlertDescription>
-                         <Button type="button" variant="link" className="w-full h-auto p-1 mt-2 text-destructive-foreground" onClick={requestLocation}>
-                            إعادة طلب صلاحية الموقع
-                        </Button>
+                         {employeeCode !== 'admin' && (
+                            <Button type="button" variant="link" className="w-full h-auto p-1 mt-2 text-destructive-foreground" onClick={requestLocation}>
+                                إعادة طلب صلاحية الموقع
+                            </Button>
+                         )}
                     </Alert>
                 ) : (
-                     <div className="flex justify-center items-center gap-2 text-sm text-blue-600">
+                     <div className="flex justify-center items-center gap-2 text-sm text-green-600">
                         <CheckCircle className="h-4 w-4" />
                         <span>تم تحديد الموقع بنجاح</span>
                     </div>
                 )}
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading || isDbLoading || isSettingsLoading || isLocationLoading || !!locationError}>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isLoading || isDbLoading || isSettingsLoading || ((isLocationLoading || !!locationError) && employeeCode !== 'admin')}
+            >
               {isLoading ? 'جاري التحقق...' : 'تسجيل الدخول'}
             </Button>
           </form>
