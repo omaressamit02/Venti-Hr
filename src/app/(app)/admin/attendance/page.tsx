@@ -33,8 +33,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Filter, Hourglass, MoreVertical, Trash2, Undo, CheckCircle, XCircle, Clock, MapPin, ChevronLeft, ChevronRight, AlertTriangle, Wallet, ChevronsUpDown, Check, LogOut, LogIn, PlusCircle, Calendar as CalendarIcon } from 'lucide-react';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
-import { ref, update, push, set } from 'firebase/database';
+import { ref, update, push, set, remove } from 'firebase/database';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  TableCaption,
+} from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -416,11 +419,22 @@ export default function AttendancePage() {
     }
   };
 
-  const handleAttendanceAction = async (recordId: string, action: 'forgive_delay' | 'mark_absent' | 'revert' | 'cancel_checkout' | 'set_weekly_off') => {
+  const handleAttendanceAction = async (recordId: string, action: 'forgive_delay' | 'mark_absent' | 'revert' | 'cancel_checkout' | 'set_weekly_off' | 'delete_record') => {
       if (!db) return;
       
       const originalRecord = allAttendanceRecords.find(r => r.id === recordId);
       const recordRef = ref(db, `attendance/${selectedMonth}/${recordId}`);
+
+      if (action === 'delete_record') {
+          try {
+              await remove(recordRef);
+              toast({ title: 'تم حذف السجل بنجاح' });
+              return;
+          } catch (error) {
+              toast({ variant: 'destructive', title: 'فشل حذف السجل' });
+              return;
+          }
+      }
 
       let updates: any = {};
 
@@ -489,6 +503,13 @@ export default function AttendancePage() {
   const handleAddManualEntry = async () => {
       if (!db || !manualEntry.employeeId) {
           toast({ variant: 'destructive', title: 'بيانات ناقصة' });
+          return;
+      }
+
+      // Check for duplicate: Prevent adding more than one record for same user on same day
+      const alreadyExists = allAttendanceRecords.some(r => r.employeeId === manualEntry.employeeId && r.date === manualEntry.date && !r.id.includes('-'));
+      if (alreadyExists) {
+          toast({ variant: 'destructive', title: 'سجل مكرر', description: 'يوجد سجل لهذا الموظف في هذا اليوم بالفعل.' });
           return;
       }
 
@@ -661,6 +682,9 @@ export default function AttendancePage() {
                          <DropdownMenuSeparator />
                          <DropdownMenuItem onClick={() => handleAttendanceAction(record.id, 'revert')} disabled={record.delayAction === 'none' && record.status === 'present' && !record.overtimeStatus}>
                              <Undo className="ml-2 h-4 w-4" /> إلغاء كل الإجراءات
+                         </DropdownMenuItem>
+                         <DropdownMenuItem onClick={() => handleAttendanceAction(record.id, 'delete_record')} className="text-destructive focus:text-destructive">
+                             <Trash2 className="ml-2 h-4 w-4" /> حذف السجل نهائياً
                          </DropdownMenuItem>
                     </DropdownMenuContent>
                  </DropdownMenu>
@@ -1039,6 +1063,9 @@ export default function AttendancePage() {
                                    <DropdownMenuSeparator />
                                    <DropdownMenuItem onClick={() => handleAttendanceAction(record.id, 'revert')} disabled={record.delayAction === 'none' && record.status === 'present' && !record.overtimeStatus}>
                                        <Undo className="ml-2 h-4 w-4" /> إلغاء كل الإجراءات
+                                   </DropdownMenuItem>
+                                   <DropdownMenuItem onClick={() => handleAttendanceAction(record.id, 'delete_record')} className="text-destructive focus:text-destructive">
+                                       <Trash2 className="ml-2 h-4 w-4" /> حذف السجل نهائياً
                                    </DropdownMenuItem>
                               </DropdownMenuContent>
                           </DropdownMenu>
