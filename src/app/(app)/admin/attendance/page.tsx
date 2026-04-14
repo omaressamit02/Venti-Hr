@@ -188,6 +188,11 @@ export default function AttendancePage() {
     return new Map(Object.entries(employeesData).map(([id, emp]) => [id, { ...emp, id }]));
   }, [employeesData]);
 
+  const employeesList = useMemo(() => {
+    if (!employeesMap.size) return [];
+    return Array.from(employeesMap.values());
+  }, [employeesMap]);
+
   const allAttendanceRecords = useMemo(() => {
     if (!attendanceData || !employeesMap.size) return [];
     
@@ -234,7 +239,6 @@ export default function AttendancePage() {
         let earlyLeaveMinutes = 0;
         let earlyLeaveDeductionValue = 0;
         
-        // CRITICAL: Calculate daily rate based on customized work days
         const dailyRate = (employee.salary || 0) / (employee.workDaysPerMonth || 30);
 
         if (record.checkOut) {
@@ -618,11 +622,6 @@ export default function AttendancePage() {
     }
   };
 
-  const employeesList = useMemo(() => {
-    if (!employeesMap.size) return [];
-    return Array.from(employeesMap.values());
-  }, [employeesMap]);
-  
   const locationsList = useMemo(() => {
     if (!settings?.locations) return [];
     const locationsRaw = Array.isArray(settings.locations) ? settings.locations : Object.values(settings.locations);
@@ -1154,10 +1153,9 @@ export default function AttendancePage() {
                     <Select value={manualEntry.employeeId} onValueChange={(val) => setManualEntry(prev => ({...prev, employeeId: val}))}>
                         <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
                         <SelectContent>
-                            {employeesList.map((empName, idx) => {
-                                const empId = Array.from(employeesMap.keys())[idx];
-                                return <SelectItem key={empId} value={empId}>{empName as any}</SelectItem>
-                            })}
+                            {employeesList.map((emp) => (
+                                <SelectItem key={emp.id} value={emp.id}>{emp.employeeName}</SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                 </div>
