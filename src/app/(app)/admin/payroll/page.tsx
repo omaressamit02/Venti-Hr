@@ -495,7 +495,7 @@ export default function PayrollPage() {
     message += `*إجمالي الاستقطاعات: ${formatValue(totalDeductions)}*\n\n`;
     message += `---------------------\n\n`;
     message += `💰 *صافي الراتب المستحق: ${formatValue(netSalary)}*\n\n`;
-    message += `\n---\n_تم إنشاؤه بواسطة نظام ${settings?.companyName || 'Hضورى'}_`;
+    message += `\n---\n_تم إنشاؤه بواسطة نظام ${settings?.companyName || 'CodeLink-HR'}_`;
     return message;
   }
 

@@ -1,5 +1,5 @@
 
-# Hضور - Attendance and Payroll System
+# CodeLink-HR - Attendance and Payroll System
 
 This is a Next.js application for an HR attendance and payroll system, built with Firebase. The entire UI is in Arabic and designed for RTL layouts.
 
@@ -30,3 +30,4 @@ Open [http://localhost:9002](http://localhost:9002) with your browser to see the
 
 You can start editing the page by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
 # Tr
+# Venti-Hr

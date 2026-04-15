@@ -1,4 +1,4 @@
-# **App Name**: Hضور
+# **App Name**: CodeLink-HR
 
 ## Core Features:
 
