@@ -1,0 +1,414 @@
+
+'use client';
+
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { useDb, useDbData, useMemoFirebase } from '@/firebase';
+import { ref } from 'firebase/database';
+import { navItems } from '@/lib/nav-items';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
+import { useMemo } from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+const DAYS_OF_WEEK = [
+  { value: '0', label: 'الأحد' },
+  { value: '1', label: 'الاثنين' },
+  { value: '2', label: 'الثلاثاء' },
+  { value: '3', label: 'الأربعاء' },
+  { value: '4', label: 'الخميس' },
+  { value: '5', label: 'الجمعة' },
+  { value: '6', label: 'السبت' },
+];
+
+const employeeFormSchema = z.object({
+  employeeName: z.string().min(1, 'اسم الموظف مطلوب'),
+  employeeCode: z.string().min(1, 'كود الموظف مطلوب'),
+  phoneNumber: z.string().optional(),
+  gender: z.enum(['male', 'female'], { required_error: 'الجنس مطلوب' }),
+  birthDate: z.string().optional(),
+  salary: z.coerce.number().min(0, 'الراتب يجب أن يكون رقمًا موجبًا'),
+  workDaysPerMonth: z.coerce.number().min(1, 'يجب أن يكون يوم واحد على الأقل').default(30),
+  password: z.string().optional(),
+  shiftConfiguration: z.enum(['general', 'custom']),
+  checkInTime: z.string().optional(),
+  checkOutTime: z.string().optional(),
+  permissions: z.array(z.string()).optional(),
+  locationIds: z.array(z.string()).optional(),
+  daysOff: z.array(z.string()).optional(),
+  managerId: z.string().optional(),
+  isManager: z.boolean().default(false),
+  disableDeductions: z.boolean().default(false),
+  locationLoginRequired: z.boolean().default(false),
+  allowLoginFromAnyDevice: z.boolean().default(false),
+});
+
+export type EmployeeFormData = z.infer<typeof employeeFormSchema>;
+
+interface EmployeeFormProps {
+  onSubmit: (data: EmployeeFormData) => void;
+  defaultValues?: Partial<EmployeeFormData>;
+  currentEmployeeId?: string;
+}
+
+type Location = {
+    id: string;
+    name: string;
+};
+
+type GlobalSettings = {
+    locations: Location[];
+    workStartTime?: string;
+    workEndTime?: string;
+};
+
+type Employee = {
+    id: string;
+    employeeName: string;
+    isManager?: boolean;
+};
+
+const permissionNavItems = navItems.filter(item => !item.superAdminOnly);
+
+export function EmployeeForm({ onSubmit, defaultValues = {}, currentEmployeeId }: EmployeeFormProps) {
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    formState: { errors },
+  } = useForm<EmployeeFormData>({
+    resolver: zodResolver(employeeFormSchema),
+    defaultValues: {
+      disableDeductions: false,
+      locationLoginRequired: false,
+      isManager: false,
+      allowLoginFromAnyDevice: false,
+      workDaysPerMonth: 30,
+      daysOff: [],
+      permissions: navItems.filter(item => !item.adminOnly && !item.superAdminOnly).map(i => i.href),
+      ...defaultValues,
+    },
+  });
+
+  const db = useDb();
+  
+  const settingsRef = useMemoFirebase(() => db ? ref(db, 'global_settings/main') : null, [db]);
+  const [settings] = useDbData<GlobalSettings>(settingsRef);
+  
+  const employeesRef = useMemoFirebase(() => db ? ref(db, 'employees') : null, [db]);
+  const [employeesData] = useDbData<Record<string, Employee>>(employeesRef);
+
+  const locationsList = useMemo(() => {
+    if (!settings?.locations) return [];
+    const locationsRaw = Array.isArray(settings.locations) ? settings.locations : Object.values(settings.locations);
+    return locationsRaw.filter((loc: any): loc is Location => !!(loc?.id && loc?.name));
+  }, [settings]);
+  
+  const managersList = useMemo(() => {
+    if (!employeesData) return [];
+    return Object.entries(employeesData)
+      .filter(([, emp]) => emp.isManager)
+      .map(([id, emp]) => ({ value: id, label: emp.employeeName }))
+      .filter(emp => emp.value !== currentEmployeeId);
+  }, [employeesData, currentEmployeeId]);
+
+
+  const shiftConfiguration = watch('shiftConfiguration');
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="employeeName">اسم الموظف</Label>
+          <Input id="employeeName" {...register('employeeName')} />
+          {errors.employeeName && <p className="text-destructive text-xs">{errors.employeeName.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="employeeCode">كود الموظف</Label>
+          <Input id="employeeCode" {...register('employeeCode')} />
+          {errors.employeeCode && <p className="text-destructive text-xs">{errors.employeeCode.message}</p>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+         <div className="space-y-2">
+            <Label htmlFor="phoneNumber">رقم الهاتف</Label>
+            <Input id="phoneNumber" {...register('phoneNumber')} />
+        </div>
+        <div className="space-y-2">
+            <Label htmlFor="salary">الراتب الأساسي</Label>
+            <Input id="salary" type="number" {...register('salary')} />
+            {errors.salary && <p className="text-destructive text-xs">{errors.salary.message}</p>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+            <Label htmlFor="workDaysPerMonth">أيام العمل مقابل الراتب (شهرياً)</Label>
+            <Input id="workDaysPerMonth" type="number" {...register('workDaysPerMonth')} />
+            <p className='text-xs text-muted-foreground'>يستخدم لحساب الراتب اليومي وقيمة الخصم.</p>
+            {errors.workDaysPerMonth && <p className="text-destructive text-xs">{errors.workDaysPerMonth.message}</p>}
+        </div>
+        <div className="space-y-2">
+            <Label htmlFor="password">كلمة المرور (اتركه فارغًا لعدم التغيير)</Label>
+            <Input id="password" type="password" {...register('password')} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>الجنس</Label>
+          <Controller
+            name="gender"
+            control={control}
+            render={({ field }) => (
+              <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+                <div className="flex items-center space-x-2 space-x-reverse">
+                  <RadioGroupItem value="male" id="male" />
+                  <Label htmlFor="male">ذكر</Label>
+                </div>
+                <div className="flex items-center space-x-2 space-x-reverse">
+                  <RadioGroupItem value="female" id="female" />
+                  <Label htmlFor="female">أنثى</Label>
+                </div>
+              </RadioGroup>
+            )}
+          />
+           {errors.gender && <p className="text-destructive text-xs">{errors.gender.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="birthDate">تاريخ الميلاد</Label>
+          <Input id="birthDate" type="date" {...register('birthDate')} />
+        </div>
+      </div>
+
+      <div className="space-y-4 rounded-md border p-4">
+          <Label>أيام الإجازة الأسبوعية</Label>
+          <Controller
+            name="daysOff"
+            control={control}
+            render={({ field }) => (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {DAYS_OF_WEEK.map((day) => (
+                        <div key={day.value} className="flex items-center space-x-2 space-x-reverse">
+                            <Checkbox
+                                id={`day-off-${day.value}`}
+                                checked={field.value?.includes(day.value)}
+                                onCheckedChange={(checked) => {
+                                    const newValue = checked
+                                        ? [...(field.value || []), day.value]
+                                        : (field.value || []).filter((v) => v !== day.value);
+                                    field.onChange(newValue);
+                                }}
+                            />
+                            <Label htmlFor={`day-off-${day.value}`} className="text-sm font-normal cursor-pointer">
+                                {day.label}
+                            </Label>
+                        </div>
+                    ))}
+                </div>
+            )}
+          />
+      </div>
+
+        <div className="space-y-2">
+            <Label htmlFor="managerId">المدير المباشر</Label>
+             <Controller
+                name="managerId"
+                control={control}
+                render={({ field }) => (
+                    <Select dir="rtl" onValueChange={field.onChange} value={field.value || "none"}>
+                        <SelectTrigger className="w-full">
+                            <SelectValue placeholder="اختر المدير" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="none">لا يوجد مدير</SelectItem>
+                            {managersList.map((employee) => (
+                                <SelectItem key={employee.value} value={employee.value}>
+                                    {employee.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
+            />
+        </div>
+
+      <div className="space-y-4 rounded-md border p-4">
+        <Label>إعدادات الوردية</Label>
+        <Controller
+          name="shiftConfiguration"
+          control={control}
+          render={({ field }) => (
+            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+              <div className="flex items-center space-x-2 space-x-reverse">
+                <RadioGroupItem value="general" id="general" />
+                <Label htmlFor="general">وردية عامة</Label>
+              </div>
+              <div className="flex items-center space-x-2 space-x-reverse">
+                <RadioGroupItem value="custom" id="custom" />
+                <Label htmlFor="custom">وردية خاصة</Label>
+              </div>
+            </RadioGroup>
+          )}
+        />
+        {shiftConfiguration === 'custom' && (
+          <div className="grid grid-cols-2 gap-4 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="checkInTime">وقت الحضور</Label>
+              <Input id="checkInTime" type="time" {...register('checkInTime')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="checkOutTime">وقت الانصراف</Label>
+              <Input id="checkOutTime" type="time" {...register('checkOutTime')} />
+            </div>
+          </div>
+        )}
+      </div>
+
+       <Controller
+        name="permissions"
+        control={control}
+        render={({ field }) => (
+          <div className="space-y-4 rounded-md border p-4">
+            <Label>صلاحيات الوصول للشاشات</Label>
+            <ScrollArea className="h-60">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {permissionNavItems.map((item) => (
+                  <div key={item.href} className="flex items-center space-x-2 space-x-reverse">
+                    <Checkbox
+                      id={item.href}
+                      checked={field.value?.includes(item.href)}
+                      onCheckedChange={(checked) => {
+                        const newValue = checked
+                          ? [...(field.value || []), item.href]
+                          : (field.value || []).filter((p) => p !== item.href);
+                        field.onChange(newValue);
+                      }}
+                    />
+                    <label htmlFor={item.href} className="text-sm font-medium leading-none">
+                      {item.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+      />
+
+      <Controller
+        name="locationIds"
+        control={control}
+        render={({ field }) => (
+          <div className="space-y-4 rounded-md border p-4">
+            <Label>الفروع المصرح له العمل بها</Label>
+            <p className="text-xs text-muted-foreground">إذا لم يتم اختيار أي فرع، سيعتبر الموظف قادرًا على العمل في جميع الفروع.</p>
+            <ScrollArea className="h-40">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {locationsList.map((loc) => (
+                  <div key={loc.id} className="flex items-center space-x-2 space-x-reverse">
+                    <Checkbox
+                      id={`loc-${loc.id}`}
+                      checked={field.value?.includes(loc.id)}
+                      onCheckedChange={(checked) => {
+                        const newValue = checked
+                          ? [...(field.value || []), loc.id]
+                          : (field.value || []).filter((id) => id !== loc.id);
+                        field.onChange(newValue);
+                      }}
+                    />
+                    <label htmlFor={`loc-${loc.id}`} className="text-sm font-medium leading-none">
+                      {loc.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+      />
+        
+        <div className="space-y-4 rounded-md border p-4">
+             <div className="flex items-center justify-between">
+                <Label htmlFor="isManager" className="flex-grow">تعيين كمدير</Label>
+                 <Controller
+                    name="isManager"
+                    control={control}
+                    render={({ field }) => (
+                        <Switch
+                            id="isManager"
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                    )}
+                />
+            </div>
+             <p className="text-xs text-muted-foreground">
+                إذا تم تفعيل هذا الخيار، سيظهر هذا الموظف في قائمة المدراء عند إضافة أو تعديل موظف آخر.
+            </p>
+            <div className="flex items-center justify-between">
+                <Label htmlFor="disableDeductions" className="flex-grow">إيقاف خصومات التأخير التلقائية</Label>
+                 <Controller
+                    name="disableDeductions"
+                    control={control}
+                    render={({ field }) => (
+                        <Switch
+                            id="disableDeductions"
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                    )}
+                />
+            </div>
+             <div className="flex items-center justify-between">
+                <Label htmlFor="locationLoginRequired" className="flex-grow">إلزام تسجيل الدخول من داخل نطاق الفرع</Label>
+                 <Controller
+                    name="locationLoginRequired"
+                    control={control}
+                    render={({ field }) => (
+                        <Switch
+                            id="locationLoginRequired"
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                    )}
+                />
+            </div>
+             <div className="flex items-center justify-between">
+                <Label htmlFor="allowLoginFromAnyDevice" className="flex-grow">السماح بالدخول من أي جهاز</Label>
+                 <Controller
+                    name="allowLoginFromAnyDevice"
+                    control={control}
+                    render={({ field }) => (
+                        <Switch
+                            id="allowLoginFromAnyDevice"
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                    )}
+                />
+            </div>
+        </div>
+
+
+      <div className="flex justify-end">
+        <Button type="submit">حفظ الموظف</Button>
+      </div>
+    </form>
+  );
+}

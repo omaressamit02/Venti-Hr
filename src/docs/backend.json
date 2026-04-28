@@ -1,0 +1,520 @@
+
+{
+  "entities": {
+    "Employee": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Employee",
+      "type": "object",
+      "description": "Represents an employee in the HR system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the employee."
+        },
+        "employeeName": {
+          "type": "string",
+          "description": "Employee's name in Arabic (اسم الموظف)."
+        },
+        "employeeCode": {
+          "type": "string",
+          "description": "Unique employee code (كود الموظف)."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Employee's phone number, used for login."
+        },
+        "salary": {
+          "type": "number",
+          "description": "Base monthly salary (الراتب)."
+        },
+        "workDaysPerMonth": {
+          "type": "number",
+          "description": "Number of working days that define the full salary (e.g., 26 or 30). Used for daily rate calculation."
+        },
+        "password": {
+          "type": "string",
+          "description": "Password for employee login. Should be hashed."
+        },
+        "shiftConfiguration": {
+          "type": "string",
+          "description": "Defines the employee's shift (e.g., 'general', 'custom')."
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "Device ID of the employee's registered device."
+        },
+        "permissions": {
+          "type": "array",
+          "description": "List of screen identifiers or roles for access control.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "userStatus": {
+          "type": "string",
+          "description": "Status of the user (e.g., 'Active', 'Inactive', 'Pending', 'Archived')."
+        },
+        "daysOff": {
+          "type": "array",
+          "description": "List of the employee's weekly days off (e.g., ['5', '6'] for Friday and Saturday).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "managerId": {
+            "type": "string",
+            "description": "The ID of the employee's direct manager."
+        },
+        "isManager": {
+            "type": "boolean",
+            "description": "If true, this employee can be selected as a manager for other employees."
+        },
+        "locationIds": {
+            "type": "array",
+            "description": "A list of location (branch) IDs the employee is assigned to. Empty means all locations.",
+            "items": {
+                "type": "string"
+            }
+        },
+        "disableDeductions": {
+            "type": "boolean",
+            "description": "If true, all automated delay deduction rules will be disabled for this employee."
+        },
+        "locationLoginRequired": {
+            "type": "boolean",
+            "description": "If true, the employee must be within the specified location radius to log in."
+        },
+        "allowLoginFromAnyDevice": {
+            "type": "boolean",
+            "description": "If true, this employee can log in from any device, bypassing the device ID check."
+        }
+      },
+      "required": [
+        "employeeName",
+        "employeeCode",
+        "salary",
+        "shiftConfiguration",
+        "userStatus"
+      ]
+    },
+    "AttendanceRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AttendanceRecord",
+      "type": "object",
+      "description": "Represents an attendance record for an employee.",
+      "properties": {
+        "employeeId": {
+          "type": "string",
+          "description": "Reference to the Employee."
+        },
+        "date": {
+          "type": "string",
+          "description": "Date of the attendance record.",
+          "format": "date-time"
+        },
+        "checkInTime": {
+          "type": "string",
+          "description": "Check-in time (وقت الحضور).",
+          "format": "date-time"
+        },
+        "checkOutTime": {
+          "type": "string",
+          "description": "Check-out time (وقت الانصراف).",
+          "format": "date-time"
+        },
+        "delayMinutes": {
+          "type": "number",
+          "description": "Calculated delay in minutes after applying any forgiveness. This is used for payroll deductions."
+        },
+        "earlyLeaveMinutes": {
+          "type": "number",
+          "description": "Calculated early leave in minutes."
+        },
+        "originalDelayMinutes": {
+          "type": "number",
+          "description": "The original delay in minutes before any admin action (like forgiveness)."
+        },
+        "delayAction": {
+            "type": "string",
+            "enum": ["none", "forgiven"],
+            "description": "Describes the administrative action taken on the delay."
+        },
+        "overtimeMinutes": {
+            "type": "number",
+            "description": "Approved overtime in minutes."
+        },
+        "overtimeStatus": {
+            "type": "string",
+            "enum": ["pending", "approved", "rejected"],
+            "description": "The status of the overtime approval."
+        },
+        "status": {
+            "type": "string",
+            "enum": ["present", "absent"],
+            "description": "The status of the attendance for this day, can be marked as absent by an admin."
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "Device ID used to record the attendance."
+        },
+        "locationId": {
+          "type": "string",
+          "description": "ID of the location where attendance was recorded."
+        },
+        "locationName": {
+          "type": "string",
+          "description": "Name of the location where attendance was recorded."
+        },
+        "officialCheckInTime": {
+            "type": "string",
+            "description": "Official check-in time for this record, snapshot from settings."
+        },
+        "officialCheckOutTime": {
+            "type": "string",
+            "description": "Official check-out time for this record, snapshot from settings."
+        },
+        "checkInLocation": {
+            "type": "object",
+            "description": "GPS coordinates at check-in.",
+            "properties": {
+                "lat": { "type": "number" },
+                "lon": { "type": "number" }
+            }
+        },
+        "checkOutLocation": {
+            "type": "object",
+            "description": "GPS coordinates at check-out.",
+            "properties": {
+                "lat": { "type": "number" },
+                "lon": { "type": "number" }
+            }
+        },
+        "checkInDistance": {
+            "type": "number",
+            "description": "Distance in meters from the location center at check-in."
+        },
+        "checkOutDistance": {
+            "type": "number",
+            "description": "Distance in meters from the location center at check-out."
+        }
+      },
+      "required": ["employeeId", "date", "checkInTime"]
+    },
+    "MonthlyPayroll": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MonthlyPayroll",
+      "type": "object",
+      "description": "Represents the monthly payroll for an employee.",
+      "properties": {
+        "employeeId": {
+          "type": "string",
+          "description": "Reference to the Employee."
+        },
+        "month": {
+          "type": "string",
+          "description": "The month for the payroll (e.g., YYYY-MM)."
+        },
+        "baseSalary": {
+          "type": "number",
+          "description": "Base salary for the month."
+        },
+        "totalDelayMinutes": { "type": "number" },
+        "chargeableDelayMinutes": { "type": "number", "description": "Delay minutes after subtracting allowance." },
+        "delayDeductions": { "type": "number" },
+        "totalEarlyLeaveMinutes": { "type": "number" },
+        "earlyLeaveDeductions": { "type": "number" },
+        "absenceDeductions": { "type": "number" },
+        "approvedLeaveDeductions": { "type": "number" },
+        "incompleteRecordDeductions": { "type": "number" },
+        "permissionDeductions": { "type": "number", "description": "Deductions for approved early leave permissions (by hour)." },
+        "bonus": { "type": "number" },
+        "penalty": { "type": "number" },
+        "loanDeduction": { "type": "number" },
+        "salaryAdvanceDeductions": { "type": "number" },
+        "paid": { "type": "boolean" }
+      },
+      "required": [
+        "employeeId",
+        "month",
+        "baseSalary"
+      ]
+    },
+    "GlobalSetting": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "GlobalSetting",
+      "type": "object",
+      "description": "Represents global settings for the HR system.",
+      "properties": {
+        "companyName": { "type": "string" },
+        "employeeAlert": { "type": "string", "description": "A global alert message to be shown to employees on the scanner page." },
+        "workStartTime": { "type": "string", "format": "time" },
+        "workEndTime": { "type": "string", "format": "time" },
+        "lateAllowance": { "type": "number", "description": "in minutes" },
+        "lateAllowanceScope": {
+            "type": "string",
+            "enum": ["daily", "monthly"],
+            "description": "Determines if the late allowance is applied per day or aggregated over the month."
+        },
+        "overtimeEnabled": { "type": "boolean" },
+        "overtimeRate": {
+            "type": "number",
+            "description": "Multiplier for regular overtime hours (e.g., 1.5 means 1 hour overtime = 1.5 paid hours)."
+        },
+        "holidayWorkCompensationType": {
+            "type": "string",
+            "enum": ["leave", "cash"],
+            "description": "How working on a day off is compensated."
+        },
+        "holidayWorkLeaveMultiplier": {
+            "type": "number",
+            "description": "If compensation is leave, how many leave days are given for one day of work."
+        },
+        "holidayWorkCashAmount": {
+            "type": "number",
+            "description": "If compensation is cash, the fixed amount per day."
+        },
+        "qrRefreshInterval": { "type": "number", "description": "in seconds" },
+        "qrCodeRequired": { "type": "boolean", "description": "If true, QR code is required for attendance." },
+        "locationRestriction": { "type": "string" },
+        "locationRadius": { "type": "number", "description": "in meters" },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "lat": { "type": "string" },
+              "lon": { "type": "string" }
+            },
+            "required": ["id", "name", "lat", "lon"]
+          }
+        },
+        "payrollDay": { "type": "number" },
+        "currency": { "type": "string" },
+        "deductionRules": {
+            "type": "array",
+            "items": {
+                "$ref": "#/entities/DeductionRule"
+            }
+        },
+        "earlyLeaveDeductionRules": {
+            "type": "array",
+            "items": {
+                "$ref": "#/entities/DeductionRule"
+            },
+            "description": "Rules for deductions based on early leave minutes."
+        },
+        "deductionForAbsence": {
+            "type": "number",
+            "description": "Deduction in days for a full day absence."
+        },
+        "deductionForIncompleteRecord": {
+            "type": "number",
+            "description": "Deduction in days for not checking out."
+        }
+      }
+    },
+     "DeductionRule": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DeductionRule",
+      "type": "object",
+      "description": "Defines rules for financial deductions based on delays.",
+      "properties": {
+        "id": {
+            "type": "string"
+        },
+        "fromMinutes": {
+          "type": "number",
+          "description": "The start of the minute range for this rule to apply."
+        },
+        "toMinutes": {
+          "type": "number",
+          "description": "The end of the minute range for this rule to apply."
+        },
+        "deductionType": {
+          "type": "string",
+          "enum": ["day_deduction", "fixed_amount", "hour_deduction", "minute_deduction"],
+          "description": "How deductions are calculated."
+        },
+        "deductionValue": {
+          "type": "number",
+          "description": "The value used for the deduction (e.g., number of days, hours, or a fixed amount)."
+        }
+      },
+      "required": ["id", "fromMinutes", "toMinutes", "deductionType", "deductionValue"]
+    },
+    "QrCodeToken": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QrCodeToken",
+      "type": "object",
+      "description": "Represents the current QR code token and expiry information.",
+      "properties": {
+        "id": { "type": "string" },
+        "locationId": { "type": "string" },
+        "locationName": { "type": "string" },
+        "location": {
+            "type": "object",
+            "properties": {
+                "latitude": { "type": "number" },
+                "longitude": { "type": "number" }
+            }
+        },
+        "expiryTimestamp": { "type": "number" },
+        "signature": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "locationId", "expiryTimestamp", "signature"]
+    },
+    "FinancialTransaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FinancialTransaction",
+      "type": "object",
+      "description": "Represents financial transactions like bonuses, penalties, or loans.",
+      "properties": {
+        "type": { "type": "string", "enum": ["bonus", "penalty", "loan", "salary_advance"] },
+        "amount": { "type": "number" },
+        "notes": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "installments": { "type": "number", "description": "Number of installments for a loan." },
+        "paidAmount": { "type": "number", "description": "The amount of the loan that has been paid off." },
+        "status": { "type": "string", "enum": ["active", "paid"], "description": "Status of a loan." }
+      },
+      "required": ["type", "amount", "date"]
+    },
+    "EmployeeRequest": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "EmployeeRequest",
+        "type": "object",
+        "description": "Represents a request from an employee (e.g., leave, mission).",
+        "properties": {
+            "employeeId": { "type": "string", "description": "ID of the employee making the request." },
+            "managerId": { "type": "string", "description": "ID of the employee's manager for approval." },
+            "requestType": { "type": "string", "enum": ["leave_full_day", "leave_half_day", "mission", "permission_early", "permission_late"], "description": "Type of request." },
+            "startDate": { "type": "string", "format": "date-time", "description": "Start date/time of the request." },
+            "endDate": { "type": "string", "format": "date-time", "description": "End date/time of the request." },
+            "durationHours": { "type": "number", "description": "Duration in hours for a permission request." },
+            "notes": { "type": "string", "description": "Additional notes or justifications." },
+            "status": { "type": "string", "enum": ["pending", "approved", "rejected"], "description": "Status of the request." },
+            "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of when the request was created." }
+        },
+        "required": ["employeeId", "requestType", "startDate", "status", "createdAt"]
+    },
+    "Visit": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Visit",
+        "type": "object",
+        "description": "Represents a visit record for an employee.",
+        "properties": {
+            "employeeId": { "type": "string" },
+            "employeeName": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "notes": { "type": "string" },
+            "location": {
+                "type": "object",
+                "properties": {
+                    "lat": { "type": "number" },
+                    "lon": { "type": "number" }
+                }
+            }
+        },
+        "required": ["employeeId", "employeeName", "timestamp", "location"]
+    },
+    "LoginLog": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "LoginLog",
+        "type": "object",
+        "description": "Represents a login attempt to the system.",
+        "properties": {
+            "employeeId": { "type": "string", "description": "ID of the employee attempting to log in." },
+            "employeeName": { "type": "string", "description": "Name of the employee." },
+            "employeeCode": { "type": "string", "description": "The employee code used for the login attempt." },
+            "timestamp": { "type": "string", "format": "date-time", "description": "Timestamp of the login attempt." },
+            "status": { "type": "string", "enum": ["success", "failure"], "description": "Status of the login attempt." },
+            "failureReason": { "type": "string", "description": "Reason for a failed login attempt." },
+            "location": {
+                "type": "object",
+                "properties": {
+                    "lat": { "type": "number" },
+                    "lon": { "type": "number" }
+                }
+            },
+            "deviceId": { "type": "string", "description": "The unique ID of the device used for login." },
+            "userAgent": { "type": "string", "description": "User agent of the client." }
+        },
+        "required": ["employeeCode", "timestamp", "status"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/employees/{employeeId}",
+        "definition": {
+          "schema": { "$ref": "#/entities/Employee" },
+          "description": "Stores all employee profiles."
+        }
+      },
+      {
+        "path": "/attendance/{attendanceId}",
+        "definition": {
+          "schema": { "$ref": "#/entities/AttendanceRecord" },
+          "description": "Stores all attendance records for all employees."
+        }
+      },
+      {
+        "path": "/global_settings/main",
+        "definition": {
+          "schema": { "$ref": "#/entities/GlobalSetting" },
+          "description": "A single document to hold all global settings."
+        }
+      },
+      {
+        "path": "/qr_codes/{locationId}",
+        "definition": {
+          "schema": { "$ref": "#/entities/QrCodeToken" },
+          "description": "Stores the current active QR code for a specific location."
+        }
+      },
+      {
+        "path": "/payroll/{month}/{employeeId}",
+        "definition": {
+            "schema": { "$ref": "#/entities/MonthlyPayroll" },
+            "description": "Stores paid payroll records for a specific month and employee."
+        }
+      },
+      {
+        "path": "/financial_transactions/{employeeId}/{transactionId}",
+        "definition": {
+            "schema": { "$ref": "#/entities/FinancialTransaction" },
+            "description": "Stores financial transactions (bonus, penalty, loan) for an employee."
+        }
+      },
+      {
+        "path": "/employee_requests/{employeeId}/{requestId}",
+        "definition": {
+            "schema": { "$ref": "#/entities/EmployeeRequest" },
+            "description": "Stores employee requests like leave or missions."
+        }
+      },
+      {
+        "path": "/visits/{employeeId}/{visitId}",
+        "definition": {
+          "schema": { "$ref": "#/entities/Visit" },
+          "description": "Stores employee visit records."
+        }
+      },
+      {
+        "path": "/login_logs/{logId}",
+        "definition": {
+          "schema": { "$ref": "#/entities/LoginLog" },
+          "description": "Stores all login attempts to the application."
+        }
+      }
+    ]
+  }
+}
