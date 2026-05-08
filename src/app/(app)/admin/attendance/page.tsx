@@ -41,7 +41,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Filter, Hourglass, MoreVertical, Trash2, Undo, CheckCircle, XCircle, Clock, MapPin, ChevronLeft, ChevronRight, AlertTriangle, Wallet, ChevronsUpDown, Check, LogOut, LogIn, PlusCircle, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { Filter, Hourglass, MoreVertical, Trash2, Undo, CheckCircle, XCircle, Clock, MapPin, ChevronLeft, ChevronRight, AlertTriangle, Wallet, ChevronsUpDown, Check, LogOut, LogIn, PlusCircle, Calendar as CalendarIcon, Loader2, Zap } from 'lucide-react';
 import { useDb, useDbData, useMemoFirebase } from '@/firebase';
 import { ref, update, push, set, remove } from 'firebase/database';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -142,10 +142,11 @@ interface GlobalSettings {
 }
 
 export default function AttendancePage() {
+  const [isMounted, setIsMounted] = useState(false);
   const [filteredData, setFilteredData] = useState<AttendanceRecord[]>([]);
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<{employee: string, date: Date, location: string}>({
     employee: 'all',
-    date: new Date(),
+    date: new Date(2025, 0, 1), 
     location: 'all',
   });
   const [isOvertimeDialogOpen, setIsOvertimeDialogOpen] = useState(false);
@@ -171,6 +172,11 @@ export default function AttendancePage() {
 
   const db = useDb();
   const { toast } = useToast();
+
+  useEffect(() => {
+    setIsMounted(true);
+    setFilters(prev => ({ ...prev, date: new Date() }));
+  }, []);
   
   const selectedMonth = format(filters.date, 'yyyy-MM');
   const attendanceRef = useMemoFirebase(() => db ? ref(db, `attendance/${selectedMonth}`) : null, [db, selectedMonth]);
@@ -198,7 +204,6 @@ export default function AttendancePage() {
     
     return Object.entries(attendanceData).map(([id, record]): AttendanceRecord | null => {
         if (!record || !record.date) {
-            console.warn(`Skipping invalid attendance record with id: ${id}`, record);
             return null;
         }
 
@@ -230,14 +235,9 @@ export default function AttendancePage() {
         const [inH, inM] = officialCheckIn.split(':').map(Number);
         const [outH, outM] = officialCheckOut.split(':').map(Number);
         
-        // Build official times based on the WORK DAY date
-        const officialCheckInDate = new Date(record.date + 'T00:00:00');
-        officialCheckInDate.setHours(inH, inM, 0, 0);
-
-        const officialCheckOutDate = new Date(record.date + 'T00:00:00');
-        officialCheckOutDate.setHours(outH, outM, 0, 0);
+        const officialCheckInDate = new Date(`${record.date}T${officialCheckIn}:00`);
+        const officialCheckOutDate = new Date(`${record.date}T${officialCheckOut}:00`);
         
-        // Cross-midnight shift detection
         if (inH > outH) {
             officialCheckOutDate.setDate(officialCheckOutDate.getDate() + 1);
         }
@@ -255,8 +255,13 @@ export default function AttendancePage() {
         if (record.checkOut) {
             const checkOutTimestamp = new Date(record.checkOut).getTime();
             
-            // Fix: Early leave should only be calculated if check-out is BEFORE official end
-            if (checkOutTimestamp < officialCheckOutDate.getTime()) {
+            const actualCheckOutDate = new Date(record.checkOut);
+            const workDayDateObj = new Date(record.date);
+            const isStrictlyNextDay = actualCheckOutDate.getFullYear() > workDayDateObj.getFullYear() || 
+                                      (actualCheckOutDate.getFullYear() === workDayDateObj.getFullYear() && actualCheckOutDate.getMonth() > workDayDateObj.getMonth()) ||
+                                      (actualCheckOutDate.getFullYear() === workDayDateObj.getFullYear() && actualCheckOutDate.getMonth() === workDayDateObj.getMonth() && actualCheckOutDate.getDate() > workDayDateObj.getDate());
+
+            if (checkOutTimestamp < officialCheckOutDate.getTime() && !isStrictlyNextDay) {
                 earlyLeaveMinutes = Math.floor((officialCheckOutDate.getTime() - checkOutTimestamp) / (1000 * 60));
                 
                 const earlyLeaveRulesRaw = settings?.earlyLeaveDeductionRules;
@@ -300,7 +305,7 @@ export default function AttendancePage() {
           missedCheckoutDeductionValue = dailyRate * settings.deductionForIncompleteRecord;
         }
 
-        if (record.delayMinutes && record.delayMinutes > (settings?.lateAllowance || 0) && settings?.deductionRules) {
+        if (record.delayMinutes && record.delayMinutes > (settings?.lateAllowance || 0) && settings?.deductionRules && record.delayAction !== 'forgiven') {
             const deductionRulesRaw = settings?.deductionRules;
             const rules: DeductionRule[] = (Array.isArray(deductionRulesRaw)
                 ? deductionRulesRaw
@@ -323,9 +328,9 @@ export default function AttendancePage() {
             employeeName: employee?.employeeName || 'غير معروف',
             date: record.date,
             rawCheckIn: record.checkIn,
-            checkIn: new Date(record.checkIn).toLocaleTimeString('ar-EG'),
+            checkIn: new Date(record.checkIn).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true }),
             rawCheckOut: record.checkOut,
-            checkOut: record.checkOut ? new Date(record.checkOut).toLocaleTimeString('ar-EG') : 'لم يسجل انصراف',
+            checkOut: record.checkOut ? new Date(record.checkOut).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'لم يسجل انصراف',
             workHours: (workHours > 0 ? workHours : 0) / (1000 * 60 * 60),
             delayMinutes: record.delayMinutes || 0,
             earlyLeaveMinutes: earlyLeaveMinutes,
@@ -398,7 +403,7 @@ export default function AttendancePage() {
       if (monthlyFilter === 'absent') {
           data = absentRecords;
       }
-    } else { // daily view
+    } else { 
       const selectedDateStr = format(filters.date, 'yyyy-MM-dd');
       data = allAttendanceRecords.filter(d => d.date === selectedDateStr);
     }
@@ -490,7 +495,6 @@ export default function AttendancePage() {
 
       try {
         if (recordId.includes('-')) {
-            // For virtual absent records, we need to create them
             const [empId, date] = recordId.split('-');
             const newRef = push(attendanceRef!);
             await set(newRef, {
@@ -530,33 +534,32 @@ export default function AttendancePage() {
           return;
       }
 
-      // Check for duplicate: Prevent adding more than one record for same user on same day
-      const alreadyExists = allAttendanceRecords.some(r => r.employeeId === manualEntry.employeeId && r.date === manualEntry.date && !r.id.includes('-'));
-      if (alreadyExists) {
-          toast({ variant: 'destructive', title: 'سجل مكرر', description: 'يوجد سجل لهذا الموظف في هذا اليوم بالفعل.' });
-          return;
-      }
-
-      const monthKey = manualEntry.date.slice(0, 7);
       const employee = employeesMap.get(manualEntry.employeeId);
       
+      let checkInDate = new Date(`${manualEntry.date}T${manualEntry.checkIn}`);
+      let checkOutDate = new Date(`${manualEntry.date}T${manualEntry.checkOut}`);
+      
+      if (manualEntry.status === 'present' && checkOutDate < checkInDate) {
+          checkOutDate = addDays(checkOutDate, 1);
+      }
+
       let checkInIso = null;
       let checkOutIso = null;
       let delayMinutes = 0;
 
       if (manualEntry.status === 'present') {
-          checkInIso = new Date(`${manualEntry.date}T${manualEntry.checkIn}`).toISOString();
-          checkOutIso = new Date(`${manualEntry.date}T${manualEntry.checkOut}`).toISOString();
+          checkInIso = checkInDate.toISOString();
+          checkOutIso = checkOutDate.toISOString();
           
           const officialStart = (employee?.shiftConfiguration === 'custom' && employee.checkInTime) || settings?.workStartTime || '08:00';
           const workStartToday = new Date(`${manualEntry.date}T${officialStart}`);
-          const actualStart = new Date(checkInIso);
-          if (actualStart > workStartToday) {
-              delayMinutes = Math.floor((actualStart.getTime() - workStartToday.getTime()) / 60000);
+          if (checkInDate > workStartToday) {
+              delayMinutes = Math.floor((checkInDate.getTime() - workStartToday.getTime()) / 60000);
           }
       }
 
       try {
+          const monthKey = manualEntry.date.slice(0, 7);
           const newRecordRef = push(ref(db, `attendance/${monthKey}`));
           await set(newRecordRef, {
               employeeId: manualEntry.employeeId,
@@ -827,6 +830,27 @@ export default function AttendancePage() {
     );
   };
 
+  // Helper values for manual entry dialog
+  const manualEntryEmployee = manualEntry.employeeId ? employeesMap.get(manualEntry.employeeId) : null;
+  const manualEntryOfficialIn = (manualEntryEmployee?.shiftConfiguration === 'custom' && manualEntryEmployee.checkInTime) || settings?.workStartTime || '08:00';
+  const manualEntryOfficialOut = (manualEntryEmployee?.shiftConfiguration === 'custom' && manualEntryEmployee.checkOutTime) || settings?.workEndTime || '16:00';
+
+  const manualEntryDelay = useMemo(() => {
+    if (manualEntry.status !== 'present' || !manualEntry.checkIn || !manualEntryOfficialIn) return 0;
+    const [h, m] = manualEntry.checkIn.split(':').map(Number);
+    const [oh, om] = manualEntryOfficialIn.split(':').map(Number);
+    const diff = (h * 60 + m) - (oh * 60 + om);
+    return diff > 0 ? diff : 0;
+  }, [manualEntry.checkIn, manualEntry.status, manualEntryOfficialIn]);
+
+  const setManualOfficialTimes = () => {
+      setManualEntry(prev => ({
+          ...prev,
+          checkIn: manualEntryOfficialIn,
+          checkOut: manualEntryOfficialOut
+      }));
+  };
+
 
   return (
     <>
@@ -904,7 +928,7 @@ export default function AttendancePage() {
                  </Button>
                  <Input 
                     type={viewMode === 'daily' ? 'date' : 'month'}
-                    value={viewMode === 'daily' ? format(filters.date, 'yyyy-MM-dd') : format(filters.date, 'yyyy-MM')}
+                    value={!isMounted ? '' : viewMode === 'daily' ? format(filters.date, 'yyyy-MM-dd') : format(filters.date, 'yyyy-MM')}
                     onChange={e => handleFilterChange('date', new Date(e.target.value))}
                     className="text-center"
                  />
@@ -942,7 +966,7 @@ export default function AttendancePage() {
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-center justify-between gap-4">
           <CardTitle>
-             سجلات الحضور لـ{viewMode === 'daily' ? `يوم ${format(filters.date, 'PPP', { locale: arEG })}` : `شهر ${format(filters.date, 'MMMM yyyy', { locale: arEG })}`}
+             سجلات الحضور لـ{!isMounted ? '...' : viewMode === 'daily' ? `يوم ${format(filters.date, 'PPP', { locale: arEG })}` : `شهر ${format(filters.date, 'MMMM yyyy', { locale: arEG })}`}
           </CardTitle>
            <div className="flex gap-4 md:gap-8 text-center">
                <div>
@@ -957,7 +981,7 @@ export default function AttendancePage() {
         </CardHeader>
         <CardContent>
           <div className="hidden md:block">
-            <Table>
+            <Table className="whitespace-nowrap">
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-right">اسم الموظف</TableHead>
@@ -1141,7 +1165,7 @@ export default function AttendancePage() {
         <DialogContent className="max-w-md">
             <DialogHeader>
                 <DialogTitle>إضافة سجل حضور يدوي</DialogTitle>
-                <DialogDescription>أدخل بيانات الحضور للموظف يدوياً.</DialogDescription>
+                <DialogDescription>أدخل بيانات الحضور للموظف يدوياً مع مراقبة التأخير.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="space-y-2">
@@ -1155,6 +1179,18 @@ export default function AttendancePage() {
                         </SelectContent>
                     </Select>
                 </div>
+                {manualEntry.employeeId && (
+                    <div className="bg-muted/50 p-3 rounded-lg border flex justify-between items-center text-sm">
+                        <div>
+                            <p className="text-muted-foreground text-xs">الموعد الرسمي للموظف:</p>
+                            <p className="font-bold text-primary">{manualEntryOfficialIn} - {manualEntryOfficialOut}</p>
+                        </div>
+                        <Button variant="secondary" size="sm" onClick={setManualOfficialTimes}>
+                            <Zap className="h-3 w-3 ml-1" />
+                            تسجيل بالموعد الرسمي
+                        </Button>
+                    </div>
+                )}
                 <div className="space-y-2">
                     <Label>التاريخ</Label>
                     <Input type="date" value={manualEntry.date} onChange={e => setManualEntry(prev => ({...prev, date: e.target.value}))} />
@@ -1171,15 +1207,26 @@ export default function AttendancePage() {
                     </Select>
                 </div>
                 {manualEntry.status === 'present' && (
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>وقت الحضور</Label>
-                            <Input type="time" value={manualEntry.checkIn} onChange={e => setManualEntry(prev => ({...prev, checkIn: e.target.value}))} />
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>وقت الحضور</Label>
+                                <Input type="time" value={manualEntry.checkIn} onChange={e => setManualEntry(prev => ({...prev, checkIn: e.target.value}))} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>وقت الانصراف</Label>
+                                <Input type="time" value={manualEntry.checkOut} onChange={e => setManualEntry(prev => ({...prev, checkOut: e.target.value}))} />
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label>وقت الانصراف</Label>
-                            <Input type="time" value={manualEntry.checkOut} onChange={e => setManualEntry(prev => ({...prev, checkOut: e.target.value}))} />
-                        </div>
+                        {manualEntry.checkIn && manualEntry.employeeId && (
+                            <div className={cn("p-2 rounded-md text-center text-xs font-bold", manualEntryDelay > 0 ? "bg-destructive/10 text-destructive border border-destructive/20" : "bg-green-100 text-green-700 border border-green-200")}>
+                                {manualEntryDelay > 0 ? (
+                                    <>تنبيه: يوجد تأخير {manualEntryDelay} دقيقة سيتم احتسابه.</>
+                                ) : (
+                                    <>الحضور في الموعد / مبكر.</>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -1210,4 +1257,3 @@ export default function AttendancePage() {
     </>
   );
 }
-

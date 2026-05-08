@@ -30,28 +30,19 @@ interface EmployeeRequest {
 }
 
 export default function HomePage() {
+  const [isMounted, setIsMounted] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [dateState, setDateState] = useState<Date | null>(null);
-  const [isClient, setIsClient] = useState(false);
+  const [currentMonthStr, setCurrentMonthStr] = useState<string>('');
   
   const db = useDb();
   
-  const currentMonthStr = useMemo(() => format(new Date(), 'yyyy-MM'), []);
-  
-  const attendanceRef = useMemoFirebase(() => 
-    (db && userProfile?.id) ? ref(db, `attendance/${currentMonthStr}`) : null, 
-  [db, userProfile, currentMonthStr]);
-  const [monthlyAttendance, isAttendanceLoading] = useDbData<Record<string, AttendanceRecord>>(attendanceRef);
-
-  const requestsRef = useMemoFirebase(() => 
-    (db && userProfile?.id) ? ref(db, `employee_requests/${userProfile.id}`) : null,
-  [db, userProfile]);
-  const [allRequests, isRequestsLoading] = useDbData<Record<string, EmployeeRequest>>(requestsRef);
-  
-  const isLoading = isAttendanceLoading || isRequestsLoading;
-  
   useEffect(() => {
-    setIsClient(true);
+    setIsMounted(true);
+    const now = new Date();
+    setCurrentMonthStr(format(now, 'yyyy-MM'));
+    setDateState(now);
+    
     const storedProfileStr = localStorage.getItem('userProfile');
     if (storedProfileStr && storedProfileStr.trim() !== '' && storedProfileStr !== 'undefined' && storedProfileStr !== 'null') {
       try {
@@ -64,10 +55,21 @@ export default function HomePage() {
         localStorage.removeItem('userProfile');
       }
     }
-    setDateState(new Date());
     const timer = setInterval(() => setDateState(new Date()), 30000);
     return () => clearInterval(timer);
   }, []);
+  
+  const attendanceRef = useMemoFirebase(() => 
+    (db && userProfile?.id && currentMonthStr) ? ref(db, `attendance/${currentMonthStr}`) : null, 
+  [db, userProfile, currentMonthStr]);
+  const [monthlyAttendance, isAttendanceLoading] = useDbData<Record<string, AttendanceRecord>>(attendanceRef);
+
+  const requestsRef = useMemoFirebase(() => 
+    (db && userProfile?.id) ? ref(db, `employee_requests/${userProfile.id}`) : null,
+  [db, userProfile]);
+  const [allRequests, isRequestsLoading] = useDbData<Record<string, EmployeeRequest>>(requestsRef);
+  
+  const isLoading = !isMounted || isAttendanceLoading || isRequestsLoading;
   
   const userAttendance = useMemo(() => {
     if (!monthlyAttendance || !userProfile) return [];
@@ -155,7 +157,7 @@ export default function HomePage() {
                 </p>
            </div>
             <div className="flex items-center space-x-2 space-x-reverse text-right">
-                {isClient && dateState ? (
+                {isMounted && dateState ? (
                     <>
                         <div className="p-2 bg-muted rounded-md">
                             <p className="text-lg font-semibold">{dateState.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'long' })}</p>

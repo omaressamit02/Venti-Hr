@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   Table,
@@ -100,20 +100,28 @@ const getWorkDaysInRange = (startDate: Date, endDate: Date, daysOff: string[]): 
 
 
 export default function ReportsPage() {
+  const [isMounted, setIsMounted] = useState(false);
   const db = useDb();
   const router = useRouter();
-  const [reportDate, setReportDate] = useState(new Date());
-  const [reportMonth, setReportMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [reportDate, setReportDate] = useState(new Date(2025, 0, 1));
+  const [reportMonth, setReportMonth] = useState('2025-01');
+
+  useEffect(() => {
+    setIsMounted(true);
+    const now = new Date();
+    setReportDate(now);
+    setReportMonth(format(now, 'yyyy-MM'));
+  }, []);
 
   // --- Data Fetching ---
   const employeesRef = useMemoFirebase(() => db ? ref(db, 'employees') : null, [db]);
   const [employeesData, isEmployeesLoading] = useDbData<Record<string, Employee>>(employeesRef);
 
   const attendanceMonthForDaily = format(reportDate, 'yyyy-MM');
-  const attendanceRefDaily = useMemoFirebase(() => db ? ref(db, `attendance/${attendanceMonthForDaily}`) : null, [db, attendanceMonthForDaily]);
+  const attendanceRefDaily = useMemoFirebase(() => (db && attendanceMonthForDaily) ? ref(db, `attendance/${attendanceMonthForDaily}`) : null, [db, attendanceMonthForDaily]);
   const [attendanceDataDaily, isAttendanceDailyLoading] = useDbData<Record<string, AttendanceRecord>>(attendanceRefDaily);
   
-  const attendanceRefMonthly = useMemoFirebase(() => db ? ref(db, `attendance/${reportMonth}`) : null, [db, reportMonth]);
+  const attendanceRefMonthly = useMemoFirebase(() => (db && reportMonth) ? ref(db, `attendance/${reportMonth}`) : null, [db, reportMonth]);
   const [attendanceDataMonthly, isAttendanceMonthlyLoading] = useDbData<Record<string, AttendanceRecord>>(attendanceRefMonthly);
 
   const requestsRef = useMemoFirebase(() => db ? ref(db, 'employee_requests') : null, [db]);
@@ -136,7 +144,7 @@ export default function ReportsPage() {
 
   // --- Daily Attendance Report Logic ---
   const dailyAttendanceReport = useMemo(() => {
-    if (!allEmployees.length) return [];
+    if (!allEmployees.length || !isMounted) return [];
 
     const reportDateStr = format(reportDate, 'yyyy-MM-dd');
     const reportDayOfWeek = getDay(reportDate).toString();
@@ -152,7 +160,6 @@ export default function ReportsPage() {
     }[] = [];
     
     allEmployees.forEach(employee => {
-        // 1. Check for manual attendance record first (might override status)
         const attendanceRecord = attendanceDataDaily ? Object.values(attendanceDataDaily).find(rec => rec.employeeId === employee.id && rec.date === reportDateStr) : null;
 
         if (attendanceRecord?.status === 'weekly_off') {
@@ -165,14 +172,24 @@ export default function ReportsPage() {
              return;
         }
 
-        // 2. Check for regular weekly day off
         const employeeDaysOff = employee.daysOff || [];
         if(employeeDaysOff.includes(reportDayOfWeek)) {
-            report.push({ id: employee.id, employeeName: employee.employeeName, status: 'weekly_off', notes: 'إجازة أسبوعية' });
+            if (attendanceRecord && attendanceRecord.checkIn) {
+                report.push({
+                   id: employee.id,
+                   employeeName: employee.employeeName,
+                   status: 'present',
+                   checkInTime: new Date(attendanceRecord.checkIn).toLocaleTimeString('ar-EG'),
+                   checkOutTime: attendanceRecord.checkOut ? new Date(attendanceRecord.checkOut).toLocaleTimeString('ar-EG') : undefined,
+                   delayMinutes: attendanceRecord.delayMinutes,
+                   notes: 'عمل في يوم إجازة'
+                });
+            } else {
+                report.push({ id: employee.id, employeeName: employee.employeeName, status: 'weekly_off', notes: 'إجازة أسبوعية' });
+            }
             return;
         }
 
-        // 3. Check for approved leave
         const employeeRequests = requestsData?.[employee.id] ? Object.values(requestsData[employee.id]) : [];
         const approvedLeave = employeeRequests.find(req => {
             if (req.status === 'approved' && req.requestType.startsWith('leave')) {
@@ -195,7 +212,6 @@ export default function ReportsPage() {
             return;
         }
 
-        // 4. Check for attendance (present)
         if (attendanceRecord && attendanceRecord.checkIn) {
              report.push({
                 id: employee.id,
@@ -208,7 +224,6 @@ export default function ReportsPage() {
              return;
         }
         
-        // 5. If none of the above, employee is absent
         report.push({
             id: employee.id,
             employeeName: employee.employeeName,
@@ -217,7 +232,7 @@ export default function ReportsPage() {
     });
 
     return report.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
-  }, [reportDate, allEmployees, attendanceDataDaily, requestsData]);
+  }, [reportDate, allEmployees, attendanceDataDaily, requestsData, isMounted]);
 
   const dailyStatusCounts = useMemo(() => {
     const counts = { present: 0, absent: 0, on_leave: 0, weekly_off: 0 };
@@ -236,7 +251,7 @@ export default function ReportsPage() {
     const idealEmployeeReport = useMemo(() => {
       const POINTS_PER_DAY = 4;
       
-      if (!attendanceDataMonthly || !employeesData || !allEmployees.length) return [];
+      if (!attendanceDataMonthly || !employeesData || !allEmployees.length || !isMounted) return [];
       
       const employeeStats: { [key: string]: { 
           totalDelay: number; 
@@ -244,17 +259,19 @@ export default function ReportsPage() {
           bonuses: number;
           penalties: number;
           startingPoints: number;
+          workedOnDaysOff: number;
       } } = {};
 
       const monthDate = new Date(reportMonth + '-02T00:00:00');
       const today = new Date();
       const calculationEndDate = today < endOfMonth(monthDate) ? today : endOfMonth(monthDate);
+      const daysInInterval = eachDayOfInterval({ start: startOfMonth(monthDate), end: calculationEndDate });
 
       allEmployees.forEach(emp => {
           const daysOff = emp.daysOff || ['5']; 
-          const workDaysSoFar = getWorkDaysInRange(startOfMonth(monthDate), calculationEndDate, daysOff).length;
+          const workDaysSoFar = daysInInterval.filter(day => !daysOff.includes(getDay(day).toString())).length;
           const startingPoints = workDaysSoFar * POINTS_PER_DAY;
-          employeeStats[emp.id] = { totalDelay: 0, absenceDays: 0, bonuses: 0, penalties: 0, startingPoints };
+          employeeStats[emp.id] = { totalDelay: 0, absenceDays: 0, bonuses: 0, penalties: 0, startingPoints, workedOnDaysOff: 0 };
       });
       
       const presentDaysByEmployee: { [key: string]: Set<string> } = {};
@@ -263,19 +280,23 @@ export default function ReportsPage() {
               if (rec.delayMinutes && rec.delayMinutes > 0) {
                   employeeStats[rec.employeeId].totalDelay += rec.delayMinutes;
               }
-              if (rec.checkIn && rec.status !== 'weekly_off' && rec.status !== 'absent') {
+              if (rec.checkIn && rec.status !== 'absent') {
                   if (!presentDaysByEmployee[rec.employeeId]) {
                     presentDaysByEmployee[rec.employeeId] = new Set();
                   }
                   presentDaysByEmployee[rec.employeeId].add(rec.date);
+                  
+                  const emp = employeesData[rec.employeeId];
+                  if (emp?.daysOff?.includes(getDay(new Date(rec.date)).toString())) {
+                    employeeStats[rec.employeeId].workedOnDaysOff++;
+                  }
               }
           }
       });
       
-      
       allEmployees.forEach(emp => {
         const daysOff = emp.daysOff || ['5']; 
-        const workDays = getWorkDaysInRange(startOfMonth(monthDate), calculationEndDate, daysOff);
+        const workDays = daysInInterval.filter(day => !daysOff.includes(getDay(day).toString()));
         
         const employeeRequests = requestsData && requestsData[emp.id] ? Object.values(requestsData[emp.id]) : [];
         const approvedLeaveDays = new Set<string>();
@@ -290,20 +311,18 @@ export default function ReportsPage() {
             }
         });
         
-        let absenceCount = 0;
+        let rawAbsenceCount = 0;
         workDays.forEach(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
-            // Respect manual 'weekly_off' override from attendance records
-            const manualOff = Object.values(attendanceDataMonthly || {}).some(a => a.employeeId === emp.id && a.date === dayStr && a.status === 'weekly_off');
-            if (manualOff) return;
-
             const attended = presentDaysByEmployee[emp.id]?.has(dayStr);
             if (!attended && !approvedLeaveDays.has(dayStr)) {
-                absenceCount++;
+                rawAbsenceCount++;
             }
         });
+
+        // Balancing Logic: Net Absence = Raw Absence - Worked on Days Off
         if (employeeStats[emp.id]) {
-            employeeStats[emp.id].absenceDays = absenceCount;
+            employeeStats[emp.id].absenceDays = Math.max(0, rawAbsenceCount - employeeStats[emp.id].workedOnDaysOff);
         }
       });
       
@@ -331,14 +350,10 @@ export default function ReportsPage() {
               const employee = employeesData[employeeId];
               if (!employee) return null;
 
-              // CRITICAL: Divider is customized per employee
               const dailyRate = (employee.salary || 0) / (employee.workDaysPerMonth || 30);
 
-              const bonusDays = dailyRate > 0 ? stats.bonuses / dailyRate : 0;
-              const penaltyDays = dailyRate > 0 ? stats.penalties / dailyRate : 0;
-              
-              const bonusPoints = bonusDays * POINTS_PER_DAY;
-              const penaltyPoints = penaltyDays * POINTS_PER_DAY;
+              const bonusPoints = dailyRate > 0 ? (stats.bonuses / dailyRate) * POINTS_PER_DAY : 0;
+              const penaltyPoints = dailyRate > 0 ? (stats.penalties / dailyRate) * POINTS_PER_DAY : 0;
               const absencePoints = stats.absenceDays * POINTS_PER_DAY;
               const delayPoints = (stats.totalDelay / 60) * 3;
               
@@ -360,15 +375,14 @@ export default function ReportsPage() {
               if (a.totalPoints !== b.totalPoints) return b.totalPoints - a.totalPoints;
               if (a.absenceDays !== b.absenceDays) return a.absenceDays - b.absenceDays;
               if (a.totalDelay !== b.totalDelay) return a.totalDelay - b.totalDelay;
-              if (a.penalties !== b.penalties) return a.penalties - b.penalties;
               return b.bonuses - a.bonuses;
           });
 
-  }, [attendanceDataMonthly, transactionsData, requestsData, reportMonth, employeesData, allEmployees, settings]);
+  }, [attendanceDataMonthly, transactionsData, requestsData, reportMonth, employeesData, allEmployees, settings, isMounted]);
 
 
   const months = Array.from({ length: 12 }, (_, i) => format(subMonths(new Date(), i), 'yyyy-MM'));
-  const isLoading = isEmployeesLoading || isAttendanceDailyLoading || isRequestsLoading || isAttendanceMonthlyLoading || isTransactionsLoading || isSettingsLoading;
+  const isLoading = !isMounted || isEmployeesLoading || isAttendanceDailyLoading || isRequestsLoading || isAttendanceMonthlyLoading || isTransactionsLoading || isSettingsLoading;
   
   const rankColors = [
     "bg-amber-400/20 border-amber-500", // Gold
@@ -403,7 +417,7 @@ export default function ReportsPage() {
                 <CardContent className="space-y-6">
                      <div className="space-y-2 max-w-sm">
                         <Label htmlFor="report-date">اختر التاريخ</Label>
-                        <Input id="report-date" type="date" value={format(reportDate, 'yyyy-MM-dd')} onChange={e => setReportDate(new Date(e.target.value))} />
+                        <Input id="report-date" type="date" value={isMounted ? format(reportDate, 'yyyy-MM-dd') : ''} onChange={e => setReportDate(new Date(e.target.value))} />
                     </div>
                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <Card>
@@ -495,7 +509,6 @@ export default function ReportsPage() {
             </Card>
         </TabsContent>
 
-        {/* Monthly Delay Report placeholder */}
         <TabsContent value="monthly-delay">
             <Card className="mt-4">
                 <CardHeader>
@@ -519,24 +532,27 @@ export default function ReportsPage() {
                 <CardContent className="space-y-6">
                     <div className="space-y-2 max-w-sm">
                         <Label htmlFor="report-month-ideal">اختر الشهر</Label>
-                        <Select dir="rtl" value={reportMonth} onValueChange={setReportMonth}>
-                        <SelectTrigger id="report-month-ideal"><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                            {months.map(month => (
-                                <SelectItem key={month} value={month}>{new Date(month + '-02').toLocaleDateString('ar', { month: 'long', year: 'numeric' })}</SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
+                        {!isMounted ? (
+                           <Skeleton className="h-10 w-full" />
+                        ) : (
+                          <Select dir="rtl" value={reportMonth} onValueChange={setReportMonth}>
+                          <SelectTrigger id="report-month-ideal"><SelectValue/></SelectTrigger>
+                          <SelectContent>
+                              {months.map(month => (
+                                  <SelectItem key={month} value={month}>{new Date(month + '-02').toLocaleDateString('ar', { month: 'long', year: 'numeric' })}</SelectItem>
+                              ))}
+                          </SelectContent>
+                          </Select>
+                        )}
                     </div>
                      <Alert>
                         <Info className="h-4 w-4" />
-                        <AlertTitle>آلية احتساب النقاط</AlertTitle>
+                        <AlertTitle>آلية احتساب النقاط وتوازن الأيام</AlertTitle>
                         <div className="text-xs [&_p]:leading-relaxed">
                             <ul className="list-disc pr-5 text-xs space-y-1 mt-2">
-                                <li><b>الرصيد الابتدائي:</b> (أيام العمل في الشهر حتى اليوم) × 4 نقاط.</li>
-                                <li><b>نقاط المكافآت (تضاف):</b> (قيمة المكافأة / الراتب اليومي) × 4 نقاط.</li>
-                                <li><b>نقاط الجزاءات (تخصم):</b> (قيمة الجزاء / الراتب اليومي) × 4 نقاط.</li>
-                                <li><b>نقاط الغياب (تخصم):</b> (عدد أيام الغياب) × 4 نقاط.</li>
+                                <li><b>الرصيد الابتدائي:</b> (أيام العمل المستهدفة في الشهر) × 4 نقاط.</li>
+                                <li><b>توازن الأيام:</b> أيام العمل في العطلات الرسمية تعوض أيام الغياب في الجدول، مما يحافظ على نقاط الموظف.</li>
+                                <li><b>الغياب الصافي (بعد التوازن):</b> يخصم 4 نقاط لكل يوم.</li>
                                 <li><b>نقاط التأخير (تخصم):</b> (إجمالي ساعات التأخير) × 3 نقاط.</li>
                             </ul>
                         </div>
@@ -565,7 +581,7 @@ export default function ReportsPage() {
                                             <TableRow>
                                                 <TableHead>الترتيب</TableHead>
                                                 <TableHead>اسم الموظف</TableHead>
-                                                <TableHead className="text-center">الغياب (يوم)</TableHead>
+                                                <TableHead className="text-center">الغياب الصافي (يوم)</TableHead>
                                                 <TableHead className="text-center">التأخير (دقيقة)</TableHead>
                                                 <TableHead className="text-center">الجزاءات (ج.م)</TableHead>
                                                 <TableHead className="text-center">المكافآت (ج.م)</TableHead>
@@ -617,7 +633,7 @@ export default function ReportsPage() {
                                                 </Badge>
                                             </div>
                                             <div className="mt-2 text-xs text-muted-foreground grid grid-cols-2 gap-2">
-                                                <p className="flex items-center gap-1"><UserX className="h-3 w-3"/> غياب: <span className="font-mono">{item.absenceDays}</span></p>
+                                                <p className="flex items-center gap-1"><UserX className="h-3 w-3"/> غياب صافي: <span className="font-mono">{item.absenceDays}</span></p>
                                                 <p className="flex items-center gap-1"><Clock className="h-3 w-3"/> تأخير: <span className="font-mono">{item.totalDelay}</span></p>
                                                 <p className="flex items-center gap-1"><AlertCircle className="h-3 w-3"/> جزاءات: <span className="font-mono text-destructive">{item.penalties.toLocaleString()}</span></p>
                                                 <p className="flex items-center gap-1"><PlusCircle className="h-3 w-3"/> مكافآت: <span className="font-mono text-green-600">{item.bonuses.toLocaleString()}</span></p>

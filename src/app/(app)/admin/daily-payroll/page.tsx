@@ -81,10 +81,18 @@ interface DailyStats {
 
 // --- Component ---
 export default function DailyPayrollPage() {
+  const [isMounted, setIsMounted] = useState(false);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [todayMonth, setTodayMonth] = useState('');
+
   const { toast } = useToast();
   const db = useDb();
+
+  useEffect(() => {
+    setIsMounted(true);
+    setTodayMonth(format(new Date(), 'yyyy-MM'));
+  }, []);
   
   // --- Data Fetching ---
   const employeesRef = useMemoFirebase(() => db ? ref(db, 'employees') : null, [db]);
@@ -96,8 +104,7 @@ export default function DailyPayrollPage() {
   const settingsRef = useMemoFirebase(() => db ? ref(db, 'global_settings/main') : null, [db]);
   const [settings, isSettingsLoading] = useDbData<GlobalSettings>(settingsRef);
   
-  const todayMonth = useMemo(() => format(new Date(), 'yyyy-MM'), []);
-  const attendanceRef = useMemoFirebase(() => db ? ref(db, `attendance/${todayMonth}`) : null, [db, todayMonth]);
+  const attendanceRef = useMemoFirebase(() => (db && todayMonth) ? ref(db, `attendance/${todayMonth}`) : null, [db, todayMonth]);
   const [attendanceData, isAttendanceLoading] = useDbData<Record<string, AttendanceRecord>>(attendanceRef);
 
   // --- Memoized Data Processing ---
@@ -266,7 +273,7 @@ export default function DailyPayrollPage() {
     }
   };
   
-  const isLoading = isEmployeesLoading || isTransactionsLoading || isSettingsLoading || isAttendanceLoading;
+  const isLoading = !isMounted || isEmployeesLoading || isTransactionsLoading || isSettingsLoading || isAttendanceLoading;
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">

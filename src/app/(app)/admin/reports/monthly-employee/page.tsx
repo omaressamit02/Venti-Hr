@@ -91,11 +91,16 @@ const STATUS_CONFIG = {
 // ----------------------------------------------------------
 
 export default function MonthlyEmployeeReportPage() {
-
+  const [isMounted, setIsMounted] = useState(false);
   const db = useDb();
 
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsMounted(true);
+    setSelectedMonth(format(new Date(), "yyyy-MM"));
+  }, []);
 
   // ----------------------------------------------------------
   // Firebase Data Fetching
@@ -104,10 +109,10 @@ export default function MonthlyEmployeeReportPage() {
   const employeesRef = useMemoFirebase(() => db ? ref(db, "employees") : null, [db]);
   const [employeesData, isEmployeesLoading] = useDbData<Record<string, Employee>>(employeesRef);
 
-  const attendanceRef = useMemoFirebase(() => db ? ref(db, `attendance/${selectedMonth}`) : null, [db, selectedMonth]);
+  const attendanceRef = useMemoFirebase(() => (db && selectedMonth) ? ref(db, `attendance/${selectedMonth}`) : null, [db, selectedMonth]);
   const [attendanceData, isAttendanceLoading] = useDbData<Record<string, AttendanceRecord>>(attendanceRef);
 
-  const requestsRef = useMemoFirebase(() => db ? ref(db, `employee_requests/${selectedEmployeeId}`) : null, [db, selectedEmployeeId]);
+  const requestsRef = useMemoFirebase(() => (db && selectedEmployeeId) ? ref(db, `employee_requests/${selectedEmployeeId}`) : null, [db, selectedEmployeeId]);
   const [requestsData, isRequestsLoading] = useDbData<Record<string, EmployeeRequest>>(requestsRef);
 
   const settingsRef = useMemoFirebase(() => db ? ref(db, "global_settings/main") : null, [db]);
@@ -132,7 +137,7 @@ export default function MonthlyEmployeeReportPage() {
 
   // Generate month dates
   const monthlyReport: DailyReport[] = useMemo(() => {
-    if (!selectedEmployeeId || !employeesData || !settingsData) return [];
+    if (!selectedEmployeeId || !employeesData || !settingsData || !selectedMonth) return [];
 
     const employee = employeesData[selectedEmployeeId];
     if (!employee) return [];
@@ -263,7 +268,7 @@ export default function MonthlyEmployeeReportPage() {
   }, [monthlyReport]);
 
   const months = Array.from({ length: 12 }, (_, i) => format(subMonths(new Date(), i), "yyyy-MM"));
-  const loading = isAttendanceLoading || isEmployeesLoading || isRequestsLoading || isSettingsLoading;
+  const loading = !isMounted || isAttendanceLoading || isEmployeesLoading || isRequestsLoading || isSettingsLoading;
   
   const handleShareWhatsApp = () => {
     const employee = employeesList.find(e => e.id === selectedEmployeeId);
@@ -320,7 +325,7 @@ export default function MonthlyEmployeeReportPage() {
           <div className="space-y-2">
             <Label>الموظف</Label>
 
-            {isEmployeesLoading ? (
+            {!isMounted || isEmployeesLoading ? (
               <Skeleton className="h-10 w-full" />
             ) : (
               <Popover>
@@ -355,16 +360,20 @@ export default function MonthlyEmployeeReportPage() {
           {/* Month Selector */}
           <div className="space-y-2">
             <Label>الشهر</Label>
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {months.map(m => (
-                  <SelectItem key={m} value={m}>
-                    {new Date(m + "-02").toLocaleString("ar", { month: "long", year: "numeric" })}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!isMounted ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {months.map(m => (
+                    <SelectItem key={m} value={m}>
+                      {new Date(m + "-02").toLocaleString("ar", { month: "long", year: "numeric" })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
         </CardContent>
