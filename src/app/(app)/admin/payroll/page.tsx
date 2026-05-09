@@ -129,47 +129,92 @@ interface PayrollItem {
 
 function PayslipContent({ item, fromDate, toDate, companyName, formatCurrency }: { item: PayrollItem, fromDate: string, toDate: string, companyName?: string, formatCurrency: (v: number) => string }) {
     return (
-        <div className="p-4 md:p-8 bg-white text-black font-sans text-sm" dir="rtl">
-            <div className="flex justify-between items-center border-b-2 pb-4 mb-6">
+        <div className="p-8 bg-white text-black font-sans text-sm print:p-10" dir="rtl" style={{ WebkitPrintColorAdjust: 'exact' } as any}>
+            <div className="flex justify-between items-center border-b-4 border-primary pb-6 mb-8">
                 <div>
-                    <h1 className="text-xl md:text-2xl font-bold">{companyName || "نظام حضوري"}</h1>
-                    <p className="text-muted-foreground">كشف راتب الفترة المخصصة</p>
+                    <h1 className="text-3xl font-bold text-primary">{companyName || "نظام إدارة الموارد البشرية"}</h1>
+                    <p className="text-lg text-muted-foreground mt-1">كشف تفصيلي لمستحقات الراتب</p>
                 </div>
-                <div className="text-left text-[10px] md:text-xs">
-                    <p>الفترة: من {fromDate} إلى {toDate}</p>
-                    <p>تاريخ الإصدار: {format(new Date(), 'yyyy-MM-dd HH:mm')}</p>
-                </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 mb-8 bg-muted/20 p-4 rounded-lg">
-                <div className="space-y-1">
-                    <p><span className="font-bold">الموظف:</span> {item.employeeName}</p>
-                    <p><span className="font-bold">الكود:</span> {item.employeeCode}</p>
-                </div>
-                <div className="space-y-1">
-                    <p><span className="font-bold">الراتب الأساسي:</span> {formatCurrency(item.baseSalary)} ج.م</p>
-                    <p><span className="font-bold">الحضور:</span> {item.presentDaysCount} يوم</p>
+                <div className="text-left bg-muted/30 p-3 rounded-md border">
+                    <p className="font-bold">الفترة الزمنية:</p>
+                    <p dir="ltr" className="font-mono text-sm">{fromDate} - {toDate}</p>
+                    <p className="text-[10px] mt-2 text-muted-foreground">صدر في: {format(new Date(), 'yyyy/MM/dd HH:mm')}</p>
                 </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
-                <div className="space-y-3">
-                    <h3 className="font-bold border-b pb-1 text-green-700">الاستحقاقات (+)</h3>
-                    <div className="flex justify-between"><span>راتب الفترة المكتسب:</span><span>{formatCurrency(item.proRatedSalary)}</span></div>
-                    <div className="flex justify-between"><span>المكافآت:</span><span>{formatCurrency(item.bonus)}</span></div>
-                    <div className="border-t pt-2 flex justify-between font-bold"><span>إجمالي الاستحقاقات:</span><span>{formatCurrency(item.proRatedSalary + item.bonus)}</span></div>
+
+            <div className="grid grid-cols-2 gap-6 mb-10">
+                <div className="space-y-3 p-4 border rounded-lg bg-slate-50">
+                    <h3 className="font-bold border-b pb-2 text-primary">بيانات الموظف</h3>
+                    <p className="flex justify-between"><span>الاسم:</span> <span className="font-bold">{item.employeeName}</span></p>
+                    <p className="flex justify-between"><span>كود الموظف:</span> <span className="font-mono">{item.employeeCode}</span></p>
+                    <p className="flex justify-between"><span>أيام الحضور الفعلي:</span> <span>{item.presentDaysCount} يوم</span></p>
+                    <p className="flex justify-between"><span>أيام الغياب الصافي:</span> <span className={item.absentDaysCount > 0 ? "text-destructive font-bold" : ""}>{item.absentDaysCount} يوم</span></p>
                 </div>
-                <div className="space-y-3">
-                    <h3 className="font-bold border-b pb-1 text-orange-600">الاستقطاعات (-)</h3>
-                    <div className="flex justify-between"><span>خصم التأخير اليومي:</span><span>{formatCurrency(item.delayDeductions)}</span></div>
-                    <div className="flex justify-between"><span>خصم الانصراف المبكر:</span><span>{formatCurrency(item.earlyLeaveDeductions)}</span></div>
-                    <div className="flex justify-between"><span>خصم الغياب:</span><span>{formatCurrency(item.absenceDeductions)}</span></div>
-                    <div className="flex justify-between"><span>الجزاءات:</span><span>{formatCurrency(item.penalty)}</span></div>
-                    <div className="flex justify-between"><span>سلف / سحب جزئي:</span><span>{formatCurrency(item.loanDeduction + item.salaryAdvanceDeductions)}</span></div>
-                    <div className="border-t pt-2 flex justify-between font-bold text-orange-600"><span>إجمالي الاستقطاعات:</span><span>{formatCurrency(item.totalDeductionsValue)}</span></div>
+                <div className="space-y-3 p-4 border rounded-lg bg-slate-50">
+                    <h3 className="font-bold border-b pb-2 text-primary">الراتب والأساسيات</h3>
+                    <p className="flex justify-between"><span>الراتب الشهري الثابت:</span> <span className="font-mono">{formatCurrency(item.baseSalary)} ج.م</span></p>
+                    <p className="flex justify-between"><span>قيمة اليوم الواحد:</span> <span className="font-mono">{formatCurrency(item.baseSalary / item.workDaysPerMonth)} ج.م</span></p>
+                    <p className="flex justify-between"><span>أيام الشهر المحسوبة:</span> <span>{item.workDaysPerMonth} يوم</span></p>
                 </div>
             </div>
-            <div className="mt-8 md:mt-12 p-4 bg-primary/10 border-2 border-primary rounded-xl flex justify-between items-center">
-                <span className="text-lg md:text-xl font-bold">صافي الراتب المستحق:</span>
-                <span className="text-xl md:text-2xl font-bold font-mono">{formatCurrency(item.netSalary)} ج.م</span>
+
+            <div className="grid grid-cols-2 gap-10">
+                {/* Estحقاقات */}
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 border-b-2 border-green-600 pb-2">
+                        <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                        <h3 className="font-bold text-green-700 text-lg">الاستحقاقات والإضافات (+)</h3>
+                    </div>
+                    <div className="space-y-2 px-2">
+                        <div className="flex justify-between border-b border-dashed pb-1"><span>راتب الفترة (المحقق):</span><span className="font-mono font-bold">{formatCurrency(item.proRatedSalary)}</span></div>
+                        <div className="flex justify-between border-b border-dashed pb-1"><span>المكافآت الإدارية:</span><span className="font-mono text-green-600">+{formatCurrency(item.bonus)}</span></div>
+                        <div className="pt-4 flex justify-between font-black text-green-700 border-t-2 border-green-200">
+                            <span>إجمالي الاستحقاق:</span>
+                            <span className="font-mono">{formatCurrency(item.proRatedSalary + item.bonus)} ج.م</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* استقطاعات */}
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 border-b-2 border-orange-600 pb-2">
+                        <div className="w-3 h-3 bg-orange-600 rounded-full"></div>
+                        <h3 className="font-bold text-orange-700 text-lg">الاستقطاعات والخصومات (-)</h3>
+                    </div>
+                    <div className="space-y-2 px-2">
+                        <div className="flex justify-between border-b border-dashed pb-1"><span>خصم تأخيرات الحضور:</span><span className="font-mono">-{formatCurrency(item.delayDeductions)}</span></div>
+                        <div className="flex justify-between border-b border-dashed pb-1"><span>خصم انصراف مبكر:</span><span className="font-mono">-{formatCurrency(item.earlyLeaveDeductions)}</span></div>
+                        <div className="flex justify-between border-b border-dashed pb-1"><span>خصم أيام الغياب:</span><span className="font-mono text-destructive">-{formatCurrency(item.absenceDeductions)}</span></div>
+                        <div className="flex justify-between border-b border-dashed pb-1"><span>جزاءات إدارية:</span><span className="font-mono">-{formatCurrency(item.penalty)}</span></div>
+                        <div className="flex justify-between border-b border-dashed pb-1"><span>سلف ومسحوبات سابقة:</span><span className="font-mono">-{formatCurrency(item.loanDeduction + item.salaryAdvanceDeductions)}</span></div>
+                        <div className="pt-4 flex justify-between font-black text-orange-700 border-t-2 border-orange-200">
+                            <span>إجمالي الاستقطاع:</span>
+                            <span className="font-mono">{formatCurrency(item.totalDeductionsValue)} ج.م</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-12 p-6 bg-primary/5 border-4 border-double border-primary rounded-2xl flex justify-between items-center shadow-inner">
+                <div>
+                    <span className="text-2xl font-black text-primary">صافي الراتب المستحق للصرف:</span>
+                    <p className="text-xs text-muted-foreground mt-1">تمت مراجعة السجلات وتدقيق الأوقات يدوياً وآلياً.</p>
+                </div>
+                <div className="text-right">
+                    <span className="text-4xl font-black font-mono text-primary">{formatCurrency(item.netSalary)}</span>
+                    <span className="text-xl font-bold mr-2 text-primary">ج.م</span>
+                </div>
+            </div>
+
+            <div className="mt-16 flex justify-between px-10 text-center">
+                <div className="space-y-12">
+                    <p className="font-bold border-b-2 border-slate-300 w-40 pb-2">توقيع الموظف</p>
+                    <p className="text-[10px] text-muted-foreground">أقر باستلامي المبلغ المذكور أعلاه</p>
+                </div>
+                <div className="space-y-12">
+                    <p className="font-bold border-b-2 border-slate-300 w-40 pb-2">ختم وتوقيع الإدارة</p>
+                    <p className="text-[10px] text-muted-foreground">يعتمد الصرف من المدير المالي</p>
+                </div>
             </div>
         </div>
     );
@@ -189,7 +234,11 @@ export default function PayrollPage() {
   
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollItem | null>(null);
   const payslipRef = useRef<HTMLDivElement>(null);
-  const handlePrint = useReactToPrint({ content: () => payslipRef.current });
+  const handlePrint = useReactToPrint({ 
+      content: () => payslipRef.current,
+      documentTitle: `Payroll_${selectedPayslip?.employeeName}_${fromDate}`,
+      removeAfterPrint: true 
+  });
 
   useEffect(() => {
     setIsMounted(true);
@@ -266,7 +315,6 @@ export default function PayrollPage() {
                 .filter((r: any): r is DeductionRule => !!r && typeof (r as any).fromMinutes === 'number')
                 .sort((a,b) => a.fromMinutes - b.fromMinutes);
 
-            // First categorization pass
             daysInInterval.forEach(day => {
                 const dayStr = format(day, 'yyyy-MM-dd');
                 const isOff = empDaysOff.includes(getDay(day).toString());
@@ -296,7 +344,6 @@ export default function PayrollPage() {
                     dayDetail.delayMinutes = att.delayMinutes || 0;
                     dayDetail.note = isOff ? 'عمل في يوم إجازة' : 'حضور';
                     
-                    // Delay calculation
                     if (!emp.disableDeductions && dayDetail.delayMinutes > allowance && att.delayAction !== 'forgiven') {
                         const chargeableMinutes = dayDetail.delayMinutes - allowance;
                         let rule = deductionRules.find(r => chargeableMinutes >= r.fromMinutes && chargeableMinutes <= r.toMinutes);
@@ -314,7 +361,6 @@ export default function PayrollPage() {
                         }
                     }
 
-                    // Early Leave calculation (FIXED)
                     if (att.checkOut) {
                         const officialOutStr = (emp.shiftConfiguration === 'custom' && emp.checkOutTime) || settings.workEndTime || '16:00';
                         const officialInStr = (emp.shiftConfiguration === 'custom' && emp.checkInTime) || settings.workStartTime || '08:00';
@@ -327,7 +373,6 @@ export default function PayrollPage() {
                         const actualOutDate = new Date(att.checkOut);
                         const actualOutTimestamp = actualOutDate.getTime();
                         
-                        // Rule: If check-out is strictly on a later day than work day, it's NOT early leave
                         const isStrictlyNextDay = actualOutDate.getFullYear() > day.getFullYear() || 
                                                   (actualOutDate.getFullYear() === day.getFullYear() && actualOutDate.getMonth() > day.getMonth()) ||
                                                   (actualOutDate.getFullYear() === day.getFullYear() && actualOutDate.getMonth() === day.getMonth() && actualOutDate.getDate() > day.getDate());
@@ -352,7 +397,6 @@ export default function PayrollPage() {
                 breakdown.push(dayDetail);
             });
 
-            // Interchangeable Days Logic
             const extraDaysIndices = breakdown.map((d, i) => d.status === 'present' && empDaysOff.includes(getDay(new Date(d.date)).toString()) ? i : -1).filter(i => i !== -1);
             const absentDaysIndices = breakdown.map((d, i) => d.status === 'absent' ? i : -1).filter(i => i !== -1);
 
@@ -715,14 +759,16 @@ export default function PayrollPage() {
                             </div>
                         </TabsContent>
 
-                        <TabsContent value="payslip" className="flex-grow overflow-auto">
-                            <div className="overflow-x-auto">
-                                <div ref={payslipRef} className="bg-white min-w-[600px]">
-                                   <PayslipContent item={selectedPayslip} fromDate={fromDate} toDate={toDate} companyName={settings?.companyName} formatCurrency={formatCurrency} />
+                        <TabsContent value="payslip" className="flex-grow overflow-auto p-4 md:p-6">
+                            <div className="overflow-x-auto pb-8">
+                                <div className="min-w-[600px] border shadow-2xl mx-auto rounded-lg">
+                                    <div ref={payslipRef} className="bg-white">
+                                       <PayslipContent item={selectedPayslip} fromDate={fromDate} toDate={toDate} companyName={settings?.companyName} formatCurrency={formatCurrency} />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="p-4 border-t flex justify-end gap-2 bg-muted/10 sticky bottom-0">
-                                <Button size="sm" onClick={handlePrint}><Printer className="ml-2 h-4 w-4"/>طباعة القسيمة</Button>
+                            <div className="p-4 border-t flex justify-end gap-2 bg-background sticky bottom-0 z-10">
+                                <Button size="lg" onClick={handlePrint} className="shadow-lg"><Printer className="ml-2 h-5 w-5"/>طباعة أو حفظ القسيمة (PDF)</Button>
                             </div>
                         </TabsContent>
                     </Tabs>
