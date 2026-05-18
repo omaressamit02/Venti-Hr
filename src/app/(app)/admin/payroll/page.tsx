@@ -159,7 +159,7 @@ function PayslipContent({ item, fromDate, toDate, companyName, formatCurrency }:
             </div>
 
             <div className="grid grid-cols-2 gap-10">
-                {/* Estحقاقات */}
+                {/* الاستحقاقات */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 border-b-2 border-green-600 pb-2">
                         <div className="w-3 h-3 bg-green-600 rounded-full"></div>
@@ -303,7 +303,8 @@ export default function PayrollPage() {
             
             const breakdown: DailyBreakdown[] = [];
             const allowance = settings.lateAllowance || 0;
-            const empDaysOff = emp.daysOff || ['5'];
+            // CRITICAL: Respect if employee explicitly has no days off
+            const empDaysOff = emp.daysOff || [];
 
             const rulesRaw = settings.deductionRules;
             const deductionRules: DeductionRule[] = (Array.isArray(rulesRaw) ? rulesRaw : (rulesRaw ? Object.values(rulesRaw as any) : []))

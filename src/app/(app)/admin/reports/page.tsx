@@ -172,6 +172,7 @@ export default function ReportsPage() {
              return;
         }
 
+        // CRITICAL: Respect if employee explicitly has no days off
         const employeeDaysOff = employee.daysOff || [];
         if(employeeDaysOff.includes(reportDayOfWeek)) {
             if (attendanceRecord && attendanceRecord.checkIn) {
@@ -268,7 +269,8 @@ export default function ReportsPage() {
       const daysInInterval = eachDayOfInterval({ start: startOfMonth(monthDate), end: calculationEndDate });
 
       allEmployees.forEach(emp => {
-          const daysOff = emp.daysOff || ['5']; 
+          // CRITICAL: Respect no days off
+          const daysOff = emp.daysOff || []; 
           const workDaysSoFar = daysInInterval.filter(day => !daysOff.includes(getDay(day).toString())).length;
           const startingPoints = workDaysSoFar * POINTS_PER_DAY;
           employeeStats[emp.id] = { totalDelay: 0, absenceDays: 0, bonuses: 0, penalties: 0, startingPoints, workedOnDaysOff: 0 };
@@ -295,7 +297,8 @@ export default function ReportsPage() {
       });
       
       allEmployees.forEach(emp => {
-        const daysOff = emp.daysOff || ['5']; 
+        // CRITICAL: Respect no days off
+        const daysOff = emp.daysOff || []; 
         const workDays = daysInInterval.filter(day => !daysOff.includes(getDay(day).toString()));
         
         const employeeRequests = requestsData && requestsData[emp.id] ? Object.values(requestsData[emp.id]) : [];

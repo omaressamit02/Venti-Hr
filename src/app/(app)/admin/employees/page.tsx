@@ -137,7 +137,7 @@ type GlobalSettings = {
     workEndTime?: string;
 };
 
-type FinancialTransaction = {
+interface FinancialTransaction {
     id: string;
     type: 'bonus' | 'penalty' | 'loan' | 'salary_advance';
     amount: number;
@@ -147,7 +147,7 @@ type FinancialTransaction = {
     paidAmount?: number;
 };
 
-type AttendanceRecord = {
+interface AttendanceRecord {
   employeeId: string;
   delayMinutes?: number;
   date: string;
@@ -537,7 +537,8 @@ export default function EmployeesPage() {
         const startOfCurrentMonth = startOfMonth(today);
         const daysPassedCount = differenceInDays(today, startOfCurrentMonth) + 1;
         const daysInInterval = eachDayOfInterval({ start: startOfCurrentMonth, end: today });
-        const empDaysOff = employee.daysOff || ['5'];
+        // CRITICAL: Respect no days off
+        const empDaysOff = employee.daysOff || [];
 
         let workedDaysCount = 0;
         let leaveDaysCount = 0;
@@ -548,7 +549,7 @@ export default function EmployeesPage() {
             
             const lateAllowance = settings?.lateAllowance || 0;
             const rulesRaw = settings?.deductionRules;
-            const deductionRules: DeductionRule[] = (Array.isArray(rulesRaw) ? rulesRaw : (rulesRaw ? Object.values(rulesRaw as any) : []))
+            const deductionRules: DeductionRule[] = (Array.isArray(rulesRaw) ? (rulesRaw as DeductionRule[]) : (rulesRaw ? Object.values(rulesRaw as any) : []))
                 .filter((r: any): r is DeductionRule => !!r && typeof (r as any).fromMinutes === 'number')
                 .sort((a,b) => a.fromMinutes - b.fromMinutes);
             
@@ -1730,4 +1731,3 @@ export default function EmployeesPage() {
     </>
   );
 }
-
