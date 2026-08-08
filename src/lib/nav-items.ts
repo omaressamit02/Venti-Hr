@@ -19,6 +19,8 @@ import {
   FileClock,
   Upload,
   History,
+  LockKeyhole,
+  Clock,
 } from 'lucide-react';
 
 export const navItems = [
@@ -30,6 +32,8 @@ export const navItems = [
   { href: '/admin/employees', icon: Users, label: 'إدارة الموظفين', adminOnly: true },
   { href: '/admin/reports', icon: BarChart3, label: 'التقارير العامة', adminOnly: true },
   { href: '/admin/reports/monthly-employee', icon: FileClock, label: 'تقرير الموظف الشهري', adminOnly: true },
+  { href: '/admin/reports/overtime', icon: Clock, label: 'تقرير الوقت الإضافي', adminOnly: true },
+  { href: '/admin/reports/passwords', icon: LockKeyhole, label: 'بيانات الدخول (كلمات السر)', adminOnly: true },
   { href: '/admin/visits', icon: Map, label: 'مراجعة الزيارات', adminOnly: true },
   { href: '/admin/requests', icon: FileText, label: 'طلبات الموظفين', adminOnly: true },
   { href: '/admin/attendance', icon: CalendarCheck, label: 'مراقبة الحضور', adminOnly: true },

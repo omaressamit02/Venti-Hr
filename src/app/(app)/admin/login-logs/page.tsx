@@ -32,18 +32,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Filter, Map, CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import { Filter, Map as MapIcon, CheckCircle, XCircle, Trash2, Smartphone, Globe, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
+import { arEG } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
   Tooltip,
-  TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  TooltipContent,
 } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 
 interface Employee {
@@ -130,30 +132,34 @@ export default function LoginLogsPage() {
 
   const isLoading = isLogsLoading || isEmployeesLoading;
 
+  const openMap = (lat: number, lon: number) => {
+    window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`, '_blank');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-3xl font-headline font-bold tracking-tight">
-            سجل الدخول للنظام
+            سجل الأمان والدخول
         </h2>
         <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button variant="destructive">
+                <Button variant="destructive" size="sm">
                     <Trash2 className="ml-2 h-4 w-4" />
-                    حذف كل السجلات
+                    مسح السجلات
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>هل أنت متأكد تمامًا؟</AlertDialogTitle>
+                    <AlertDialogTitle>تأكيد مسح البيانات</AlertDialogTitle>
                     <AlertDialogDescription>
-                        هذا الإجراء سيقوم بحذف جميع سجلات محاولات الدخول بشكل نهائي. لا يمكن التراجع عن هذا الإجراء.
+                        سيتم حذف جميع سجلات محاولات الدخول وتتبع الموقع بشكل نهائي. هل تريد الاستمرار؟
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>إلغاء</AlertDialogCancel>
                     <AlertDialogAction onClick={handleDeleteAllLogs} className="bg-destructive hover:bg-destructive/90">
-                        نعم، قم بالحذف
+                        نعم، مسح الكل
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -161,46 +167,43 @@ export default function LoginLogsPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-6 w-6" />
-            فلترة السجلات
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Filter className="h-5 w-5" /> تصفية السجلات
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="employee-filter">الموظف</Label>
-              <Select dir="rtl" onValueChange={(v) => handleFilterChange('employee', v)} defaultValue="all">
-                <SelectTrigger id="employee-filter"><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
+              <Label className="text-xs">الموظف</Label>
+              <Select dir="rtl" onValueChange={(v) => handleFilterChange('employee', v)} value={filters.employee}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="الكل" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">كل الموظفين</SelectItem>
-                  {isEmployeesLoading ? <SelectItem value="loading" disabled>جاري التحميل...</SelectItem> :
-                    employeesList.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id}>{emp.employeeName}</SelectItem>
-                    ))
-                  }
+                  {employeesList.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>{emp.employeeName}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="status-filter">حالة الدخول</Label>
-              <Select dir="rtl" onValueChange={(v) => handleFilterChange('status', v)} defaultValue="all">
-                <SelectTrigger id="status-filter"><SelectValue placeholder="اختر الحالة" /></SelectTrigger>
+              <Label className="text-xs">الحالة</Label>
+              <Select dir="rtl" onValueChange={(v) => handleFilterChange('status', v)} value={filters.status}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">الكل</SelectItem>
-                  <SelectItem value="success">ناجح</SelectItem>
-                  <SelectItem value="failure">فاشل</SelectItem>
+                  <SelectItem value="success">دخول ناجح</SelectItem>
+                  <SelectItem value="failure">فشل الدخول</SelectItem>
                 </SelectContent>
               </Select>
             </div>
              <div className="space-y-2">
-              <Label htmlFor="from-date">من تاريخ</Label>
-              <Input id="from-date" type="date" onChange={e => handleFilterChange('fromDate', e.target.value)} />
+              <Label className="text-xs">من تاريخ</Label>
+              <Input type="date" className="h-9" onChange={e => handleFilterChange('fromDate', e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="to-date">إلى تاريخ</Label>
-              <Input id="to-date" type="date" onChange={e => handleFilterChange('toDate', e.target.value)} />
+              <Label className="text-xs">إلى تاريخ</Label>
+              <Input type="date" className="h-9" onChange={e => handleFilterChange('toDate', e.target.value)} />
             </div>
           </div>
         </CardContent>
@@ -208,135 +211,105 @@ export default function LoginLogsPage() {
 
 
       <Card>
-        <CardHeader>
-          <CardTitle>قائمة محاولات تسجيل الدخول</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {/* Desktop Table */}
           <div className="hidden md:block">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/50">
                   <TableHead className="text-right">الموظف</TableHead>
-                  <TableHead className="text-right">الوقت والتاريخ</TableHead>
-                  <TableHead className="text-right">الحالة / السبب</TableHead>
-                  <TableHead className="text-right">معرف الجهاز</TableHead>
-                  <TableHead className="text-right">المتصفح</TableHead>
+                  <TableHead className="text-right">الوقت</TableHead>
+                  <TableHead className="text-right">الحالة / المصدر</TableHead>
+                  <TableHead className="text-right">الجهاز</TableHead>
                   <TableHead className="text-center">الموقع</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && Array.from({length: 5}).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={6}><Skeleton className="w-full h-8" /></TableCell>
-                  </TableRow>
-                ))}
-                {!isLoading && filteredLogs.length > 0 ? (
+                {isLoading ? (
+                  Array.from({length: 5}).map((_, i) => (
+                    <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>
+                  ))
+                ) : filteredLogs.length > 0 ? (
                   filteredLogs.map((log) => (
-                    <TableRow key={log.id} className={log.status === 'failure' ? 'bg-destructive/5' : ''}>
-                      <TableCell className="font-medium text-right">
-                        <div>{log.employeeName || 'غير معروف'}</div>
-                        <div className="text-xs text-muted-foreground font-mono">{log.employeeCode}</div>
-                      </TableCell>
-                      <TableCell className="text-right">{new Date(log.timestamp).toLocaleString('ar-EG')}</TableCell>
+                    <TableRow key={log.id} className={cn(log.status === 'failure' && 'bg-destructive/5')}>
                       <TableCell className="text-right">
-                        {log.status === 'success' ? (
-                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
-                                <CheckCircle className="ml-2 h-4 w-4" />
-                                دخول ناجح
-                            </Badge>
-                        ) : (
-                             <Badge variant="destructive">
-                                <XCircle className="ml-2 h-4 w-4" />
-                                دخول فاشل: {log.failureReason || 'غير معروف'}
-                            </Badge>
-                        )}
+                        <div className="font-bold text-sm">{log.employeeName || 'غير معروف'}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">{log.employeeCode}</div>
                       </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground font-mono">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="truncate max-w-[120px] cursor-help">{log.deviceId}</span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>{log.deviceId}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                      <TableCell className="text-right text-xs">
+                          {format(parseISO(log.timestamp), 'yyyy/MM/dd', { locale: arEG })}
+                          <div className="font-bold">{format(parseISO(log.timestamp), 'hh:mm a', { locale: arEG })}</div>
                       </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground max-w-[200px] truncate" title={log.userAgent}>
-                        {log.userAgent}
+                      <TableCell className="text-right">
+                        <Badge variant={log.status === 'success' ? 'secondary' : 'destructive'} className="text-[10px] px-2 py-0">
+                            {log.status === 'success' ? 'دخول آمن' : `فشل: ${log.failureReason}`}
+                        </Badge>
+                        <div className="text-[9px] text-muted-foreground mt-1 max-w-[150px] truncate" title={log.userAgent}>{log.userAgent}</div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
+                            <Smartphone className="h-3 w-3" />
+                            <span className="truncate max-w-[80px]">{log.deviceId}</span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-center">
                         {log.location ? (
-                            <Button size="sm" variant="outline" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${log.location?.lat},${log.location?.lon}`, '_blank')}>
-                                <Map className="ml-2 h-4 w-4"/>
-                                عرض
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => openMap(log.location!.lat, log.location!.lon)}>
+                                <MapIcon className="h-4 w-4"/>
                             </Button>
-                        ) : (
-                            <span className="text-xs text-muted-foreground">غير متاح</span>
-                        )}
+                        ) : <span className="text-[10px] text-muted-foreground">--</span>}
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                      {isLoading ? 'جاري تحميل السجلات...' : 'لا توجد سجلات لعرضها حسب الفلتر المحدد.'}
-                    </TableCell>
-                  </TableRow>
+                  <TableRow><TableCell colSpan={5} className="h-32 text-center text-muted-foreground">لا توجد سجلات مطابقة.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
           </div>
 
-          {/* Mobile Cards */}
-          <div className="space-y-4 md:hidden">
-            {isLoading && Array.from({length: 3}).map((_, i) => <Card key={i}><CardContent className="p-4"><Skeleton className="h-20 w-full"/></CardContent></Card>)}
-            {!isLoading && filteredLogs.length > 0 ? (
-                filteredLogs.map((log) => (
-                    <Card key={log.id} className={log.status === 'failure' ? 'border-destructive/30 bg-destructive/5' : ''}>
-                        <CardHeader className="p-4 pb-2">
-                           <div className="flex justify-between items-start">
-                             <div>
-                                <CardTitle className="text-base">{log.employeeName || log.employeeCode}</CardTitle>
-                                <CardDescription>{new Date(log.timestamp).toLocaleString('ar-EG')}</CardDescription>
+          {/* Mobile View (Cards) */}
+          <div className="md:hidden space-y-3 p-4">
+            {isLoading ? Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-xl" />) :
+             filteredLogs.length > 0 ? filteredLogs.map((log) => (
+                <Card key={log.id} className={cn("overflow-hidden border-2", log.status === 'failure' ? 'border-red-200 bg-red-50/30' : 'border-border')}>
+                    <CardHeader className="p-3 pb-2 flex flex-row justify-between items-start space-y-0">
+                        <div>
+                            <CardTitle className="text-sm font-bold">{log.employeeName || log.employeeCode}</CardTitle>
+                            <CardDescription className="text-[10px]">
+                                {format(parseISO(log.timestamp), 'EEEE, d MMMM - hh:mm a', { locale: arEG })}
+                            </CardDescription>
+                        </div>
+                        <Badge variant={log.status === 'success' ? 'secondary' : 'destructive'} className="text-[9px]">
+                            {log.status === 'success' ? 'دخول ناجح' : 'فشل الدخول'}
+                        </Badge>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-0 space-y-3">
+                        <div className="flex justify-between items-end border-t pt-2 mt-1">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                    <Globe className="h-3 w-3" />
+                                    <span className="truncate max-w-[150px]">{log.userAgent}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
+                                    <Smartphone className="h-3 w-3" />
+                                    <span>ID: {log.deviceId.slice(0, 12)}...</span>
+                                </div>
                             </div>
-                             {log.location && (
-                                <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${log.location?.lat},${log.location?.lon}`, '_blank')}>
-                                    <Map className="h-4 w-4"/>
+                            {log.location && (
+                                <Button size="sm" variant="outline" className="h-8 text-[10px] gap-1" onClick={() => openMap(log.location!.lat, log.location!.lon)}>
+                                    <MapIcon className="h-3 w-3" /> عرض الموقع <ExternalLink className="h-2 w-2" />
                                 </Button>
                             )}
-                           </div>
-                        </CardHeader>
-                        <CardContent className="p-4 pt-2 space-y-3 text-sm">
-                            <div>
-                                {log.status === 'success' ? (
-                                    <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
-                                        <CheckCircle className="ml-2 h-4 w-4" />
-                                        دخول ناجح
-                                    </Badge>
-                                ) : (
-                                     <Badge variant="destructive">
-                                        <XCircle className="ml-2 h-4 w-4" />
-                                        دخول فاشل: {log.failureReason || 'غير معروف'}
-                                    </Badge>
-                                )}
-                            </div>
-                            <p className="text-xs text-muted-foreground truncate pt-2 border-t font-mono" title={log.deviceId}>
-                                <span className="font-sans text-foreground">المعرف: </span>{log.deviceId}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate" title={log.userAgent}>{log.userAgent}</p>
-                        </CardContent>
-                    </Card>
-                ))
-            ) : (
-                <div className="h-24 text-center flex items-center justify-center">
-                    {isLoading ? 'جاري تحميل السجلات...' : 'لا توجد سجلات لعرضها.'}
-                </div>
-            )}
+                        </div>
+                        {log.status === 'failure' && log.failureReason && (
+                            <p className="text-[10px] text-red-600 font-bold bg-red-100 p-1 rounded text-center">السبب: {log.failureReason}</p>
+                        )}
+                    </CardContent>
+                </Card>
+             )) : <p className="text-center py-10 text-muted-foreground text-sm">لا توجد سجلات دخول.</p>
+            }
           </div>
-
         </CardContent>
       </Card>
     </div>

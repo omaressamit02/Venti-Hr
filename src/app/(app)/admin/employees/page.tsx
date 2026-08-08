@@ -243,8 +243,8 @@ export default function EmployeesPage() {
   const filteredEmployees = useMemo(() => {
     return allEmployees.filter(emp => {
       const matchesSearch = searchTerm ? 
-        emp.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (emp.employeeName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(emp.employeeCode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (emp.phoneNumber && emp.phoneNumber.includes(searchTerm))
         : true;
       const matchesLocation = selectedLocation === 'all' ? true : (emp.locationIds || []).includes(selectedLocation);

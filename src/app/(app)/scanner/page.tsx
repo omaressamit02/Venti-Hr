@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -107,7 +108,7 @@ const CameraScanner = ({ onScan, onError }: { onScan: (data: string) => void, on
             { facingMode: "environment" },
             config,
             qrCodeSuccessCallback,
-            () => {} // Silent error for every non-detected frame
+            () => {} 
         ).catch(err => {
             console.error("Scanner start error:", err);
             onError(err);
@@ -148,6 +149,8 @@ export default function ScannerPage() {
   const [userStatus, setUserStatus] = useState<UserStatus>('loading');
   const [lastAction, setLastAction] = useState<{ type: 'check_in' | 'check_out', time: string } | null>(null);
   const [currentDate, setCurrentDate] = useState('');
+  
+  const loggedRef = useRef(false);
 
   const { toast } = useToast();
   const db = useDb();
@@ -219,6 +222,24 @@ export default function ScannerPage() {
         }
         requestLocation();
     }, [requestLocation]);
+
+    // Logging the entry to the scanner page with location
+    useEffect(() => {
+        if (location && userProfile && !loggedRef.current && db) {
+            loggedRef.current = true;
+            const logRef = push(ref(db, 'login_logs'));
+            set(logRef, {
+                employeeId: userProfile.id,
+                employeeName: userProfile.employeeName,
+                employeeCode: userProfile.employeeCode,
+                status: 'success',
+                timestamp: new Date().toISOString(),
+                location: location,
+                deviceId: localStorage.getItem('device_id') || 'Not Found',
+                userAgent: 'Scanner Page Access (Automatic GPS Trace)',
+            });
+        }
+    }, [location, userProfile, db]);
 
     const findOpenAttendanceRecord = useCallback(async () => {
         if (!db || !userProfile) return null;
@@ -481,7 +502,7 @@ export default function ScannerPage() {
 
   return (
     <div className="flex justify-center items-start pt-4 px-2">
-      <Card className="w-full max-w-md shadow-xl border-t-4 border-t-primary">
+      <Card className="w-full max-md shadow-xl border-t-4 border-t-primary">
         <CardHeader className="text-center pb-2">
           <CardTitle className="text-2xl font-headline">بصمة الحضور الذكية</CardTitle>
           <CardDescription className="flex items-center justify-center gap-2">
