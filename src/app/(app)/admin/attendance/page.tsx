@@ -557,56 +557,95 @@ export default function AttendancePage() {
         </CardHeader>
         <CardContent>
           <div className="w-full overflow-x-auto">
-            <Table className="min-w-[800px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-right">الموظف</TableHead>
-                  <TableHead className="text-right">التاريخ</TableHead>
-                  <TableHead className="text-right">الدوام الرسمي</TableHead>
-                  <TableHead className="text-right">الحضور</TableHead>
-                  <TableHead className="text-right">الانصراف</TableHead>
-                  <TableHead className="text-left">ساعات العمل</TableHead>
-                  <TableHead className="text-left">التأخير</TableHead>
-                  <TableHead className="text-center">إجراءات</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {!isLoading && filteredData.map((record) => (
-                    <TableRow key={record.id} className={cn(record.status === 'absent' ? 'bg-destructive/10' : '', record.status === 'weekly_off' ? 'bg-muted' : '', record.isMissedCheckout && 'border-orange-500')}>
-                      <TableCell className="text-right"><div>{record.employeeName}</div>{record.locationName && <div className="text-[10px] text-muted-foreground">من: {record.locationName}</div>}</TableCell>
-                      <TableCell className="text-right text-xs">{new Date(record.date).toLocaleDateString('ar-EG')}</TableCell>
-                      <TableCell className="text-right text-[10px] font-mono text-muted-foreground">{record.officialCheckInTime} - {record.officialCheckOutTime}</TableCell>
-                      <TableCell className="text-right font-mono text-xs">{record.checkIn}</TableCell>
-                      <TableCell className="text-right font-mono text-xs">{record.checkOut}</TableCell>
-                      <TableCell className="text-left font-mono font-bold text-primary text-xs">
-                          {record.workHours.toFixed(2)}
-                          {record.overtimeStatus === 'approved' && <div className="text-[9px] text-green-600">(+{record.overtimeMinutes}د إضافي)</div>}
-                      </TableCell>
-                      <TableCell className={cn("text-left font-mono font-bold text-xs", record.delayMinutes > 0 ? 'text-destructive' : '')}>
-                         {record.delayAction === 'forgiven' ? <span>0 (متجاوز)</span> : record.delayMinutes}
-                      </TableCell>
-                      <TableCell className="text-center">
-                          <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                   <DropdownMenuItem onClick={() => handleAttendanceAction(record.id, 'forgive_delay')} disabled={record.status !== 'present'}><CheckCircle className="ml-2 h-4 w-4 text-green-500" /> تصفير التأخير</DropdownMenuItem>
-                                   <DropdownMenuItem onClick={() => handleOpenOvertimeDialog(record)} disabled={record.status !== 'present'}><Clock className="ml-2 h-4 w-4 text-blue-500" /> اعتماد وقت إضافي</DropdownMenuItem>
-                                   <DropdownMenuItem onClick={() => handleAttendanceAction(record.id, 'delete_record')} className="text-destructive"><Trash2 className="ml-2 h-4 w-4" /> حذف</DropdownMenuItem>
-                              </DropdownMenuContent>
-                          </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="hidden md:block">
+              <Table className="min-w-[800px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right">الموظف</TableHead>
+                    <TableHead className="text-right">التاريخ</TableHead>
+                    <TableHead className="text-right">الدوام الرسمي</TableHead>
+                    <TableHead className="text-right">الحضور</TableHead>
+                    <TableHead className="text-right">الانصراف</TableHead>
+                    <TableHead className="text-left">ساعات العمل</TableHead>
+                    <TableHead className="text-left">التأخير</TableHead>
+                    <TableHead className="text-center">إجراءات</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!isLoading && filteredData.map((record) => (
+                      <TableRow key={record.id} className={cn(record.status === 'absent' ? 'bg-destructive/10' : '', record.status === 'weekly_off' ? 'bg-muted' : '', record.isMissedCheckout && 'border-orange-500')}>
+                        <TableCell className="text-right"><div>{record.employeeName}</div>{record.locationName && <div className="text-[10px] text-muted-foreground">من: {record.locationName}</div>}</TableCell>
+                        <TableCell className="text-right text-xs">{new Date(record.date).toLocaleDateString('ar-EG')}</TableCell>
+                        <TableCell className="text-right text-[10px] font-mono text-muted-foreground">{record.officialCheckInTime} - {record.officialCheckOutTime}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{record.checkIn}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{record.checkOut}</TableCell>
+                        <TableCell className="text-left font-mono font-bold text-primary text-xs">
+                            {record.workHours.toFixed(2)}
+                            {record.overtimeStatus === 'approved' && <div className="text-[9px] text-green-600">(+{record.overtimeMinutes}د إضافي)</div>}
+                        </TableCell>
+                        <TableCell className={cn("text-left font-mono font-bold text-xs", record.delayMinutes > 0 ? 'text-destructive' : '')}>
+                          {record.delayAction === 'forgiven' ? <span>0 (متجاوز)</span> : record.delayMinutes}
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleAttendanceAction(record.id, 'forgive_delay')} disabled={record.status !== 'present'}><CheckCircle className="ml-2 h-4 w-4 text-green-500" /> تصفير التأخير</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleOpenOvertimeDialog(record)} disabled={record.status !== 'present'}><Clock className="ml-2 h-4 w-4 text-blue-500" /> اعتماد وقت إضافي</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleAttendanceAction(record.id, 'delete_record')} className="text-destructive"><Trash2 className="ml-2 h-4 w-4" /> حذف</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
           <div className="md:hidden space-y-4 mt-4">
               {filteredData.map(record => (
-                  <Card key={record.id} className={cn(record.status === 'absent' && 'bg-destructive/10', record.isMissedCheckout && 'border-orange-500')}>
-                      <CardContent className="p-4 grid grid-cols-2 gap-2 text-xs">
-                          <div className="col-span-2 font-bold flex justify-between"><span>{record.employeeName}</span><Badge variant={record.status === 'present' ? 'secondary' : 'destructive'}>{record.status === 'present' ? 'حاضر' : 'غائب'}</Badge></div>
-                          <div className="text-muted-foreground">ساعات العمل:</div><div className="font-bold text-primary">{record.workHours.toFixed(2)} {record.overtimeStatus === 'approved' && `(+${record.overtimeMinutes}د)`}</div>
-                          <div className="text-muted-foreground">التأخير:</div><div className={cn("font-bold", record.delayMinutes > 0 && "text-destructive")}>{record.delayAction === 'forgiven' ? '0 (متجاوز)' : record.delayMinutes}</div>
+                  <Card key={record.id} className={cn("overflow-hidden", record.status === 'absent' && 'bg-destructive/10 border-destructive/20', record.isMissedCheckout && 'border-orange-500')}>
+                      <CardHeader className="p-4 bg-muted/30 border-b flex flex-row justify-between items-center">
+                          <div className="flex flex-col">
+                              <span className="font-bold text-sm">{record.employeeName}</span>
+                              <span className="text-[10px] text-muted-foreground">{new Date(record.date).toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'short' })}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                              <Badge variant={record.status === 'present' ? 'secondary' : 'destructive'} className="text-[10px]">
+                                {record.status === 'present' ? 'حاضر' : record.status === 'absent' ? 'غائب' : 'إجازة'}
+                              </Badge>
+                               <DropdownMenu>
+                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleAttendanceAction(record.id, 'forgive_delay')} disabled={record.status !== 'present'}><CheckCircle className="ml-2 h-4 w-4 text-green-500" /> تصفير</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleOpenOvertimeDialog(record)} disabled={record.status !== 'present'}><Clock className="ml-2 h-4 w-4 text-blue-500" /> إضافي</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleAttendanceAction(record.id, 'delete_record')} className="text-destructive"><Trash2 className="ml-2 h-4 w-4" /> حذف</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                      </CardHeader>
+                      <CardContent className="p-4 grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                          <div>
+                              <p className="text-muted-foreground mb-1">الحضور:</p>
+                              <p className="font-mono font-bold">{record.checkIn}</p>
+                          </div>
+                          <div>
+                              <p className="text-muted-foreground mb-1">الانصراف:</p>
+                              <p className="font-mono font-bold">{record.checkOut}</p>
+                          </div>
+                          <div className="border-t pt-2">
+                              <p className="text-muted-foreground mb-1">ساعات العمل:</p>
+                              <p className="font-bold text-primary">{record.workHours.toFixed(2)} {record.overtimeStatus === 'approved' && `(+${record.overtimeMinutes}د)`}</p>
+                          </div>
+                          <div className="border-t pt-2">
+                              <p className="text-muted-foreground mb-1">التأخير:</p>
+                              <p className={cn("font-bold", record.delayMinutes > 0 && "text-destructive")}>{record.delayAction === 'forgiven' ? '0 (تجاوز)' : `${record.delayMinutes} دقيقة`}</p>
+                          </div>
+                          {record.isMissedCheckout && (
+                              <div className="col-span-2 flex items-center gap-1 text-orange-600 font-bold bg-orange-50 p-2 rounded">
+                                  <AlertTriangle className="h-3 w-3" /> لم يسجل انصراف
+                              </div>
+                          )}
                       </CardContent>
                   </Card>
               ))}
@@ -635,6 +674,10 @@ export default function AttendancePage() {
                         <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
                         <SelectContent>{employeesList.map(e => <SelectItem key={e.id} value={e.id}>{e.employeeName}</SelectItem>)}</SelectContent>
                     </Select>
+                </div>
+                <div className="space-y-2">
+                    <Label>تاريخ السجل</Label>
+                    <Input type="date" value={manualEntry.date} onChange={e => setManualEntry(prev => ({...prev, date: e.target.value}))}/>
                 </div>
                 {manualEntryEmployee && (
                     <div className="p-3 bg-muted rounded-lg flex justify-between items-center text-xs">
