@@ -132,6 +132,16 @@ interface PayrollItem {
     netOffsetMinutes: number; // The balance after offsetting OT vs Delay
 }
 
+// ---------------- Helpers ----------------
+
+const statusTranslations: Record<string, string> = {
+    present: 'حاضر',
+    absent: 'غائب',
+    off: 'إجازة أسبوعية',
+    leave: 'إجازة معتمدة',
+    covered: 'يوم بديل (مغطى)'
+};
+
 // ---------------- Payslip Component ----------------
 
 function PayslipContent({ item, fromDate, toDate, companyName, formatCurrency }: { item: PayrollItem, fromDate: string, toDate: string, companyName?: string, formatCurrency: (v: number) => string }) {
@@ -651,7 +661,7 @@ export default function PayrollPage() {
                                                 <TableCell className="text-right font-mono text-xs">{day.date}</TableCell>
                                                 <TableCell className="text-right">
                                                     <Badge variant={day.status === 'present' ? 'secondary' : day.status === 'absent' ? 'destructive' : 'default'} className="text-[10px]">
-                                                        {day.status}
+                                                        {statusTranslations[day.status] || day.status}
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell className="text-left font-mono font-bold text-primary text-xs">{day.workHours.toFixed(2)} س</TableCell>

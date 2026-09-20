@@ -121,14 +121,14 @@ export default function RegisterPage() {
       
       const newEmployeeData = {
         employeeName,
-        employeeCode: `EMP-${Math.floor(1000 + Math.random() * 9000)}`, // Temporary code
+        employeeCode: phoneNumber, // Use phone number as employee code
         phoneNumber,
         password,
         gender,
         birthDate,
         locationIds,
-        userStatus: 'Pending', // Status is pending until admin approval
-        permissions: ['/home', '/attendance', '/scanner', '/requests', '/visits'],
+        userStatus: 'Active', // Automatically Active
+        permissions: ['/scanner', '/attendance'], // Only Scanner and My Attendance
         salary: 0,
         shiftConfiguration: 'general',
         deviceId: null,
@@ -138,7 +138,7 @@ export default function RegisterPage() {
 
       toast({
         title: 'تم التسجيل بنجاح',
-        description: 'تم إرسال طلبك. سيقوم المدير بمراجعته وتفعيله.',
+        description: 'تم إنشاء حسابك وتفعيله بنجاح. يمكنك الآن تسجيل الدخول باستخدام رقم هاتفك ككود موظف.',
       });
       router.push('/');
     } catch (error: any) {
